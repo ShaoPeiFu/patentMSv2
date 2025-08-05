@@ -185,18 +185,18 @@ export const downloadFile = (
     
     // 创建下载链接
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = window.document.createElement('a');
     link.href = url;
     link.download = filename;
     link.style.display = 'none';
     
     // 添加到 DOM 并触发下载
-    document.body.appendChild(link);
+    window.document.body.appendChild(link);
     link.click();
     
     // 延迟清理，确保下载开始
     setTimeout(() => {
-      document.body.removeChild(link);
+      window.document.body.removeChild(link);
       URL.revokeObjectURL(url);
     }, 100);
     
@@ -216,20 +216,11 @@ export const downloadPatentDocument = async (
   options: DownloadOptions = {}
 ): Promise<void> => {
   try {
-    console.log('开始下载文档:', document);
-    console.log('文档URL:', document.fileUrl);
-    
     // 检查是否有真实文件URL
-    if (document.fileUrl && 
-        document.fileUrl !== '/documents/' && 
-        (document.fileUrl.startsWith('blob:') || 
-         document.fileUrl.startsWith('data:') || 
-         document.fileUrl.startsWith('http'))) {
-      console.log('下载真实文件');
+    if (document.fileUrl && document.fileUrl !== '/documents/') {
       // 下载真实文件
       await downloadRealFile(document, options);
     } else {
-      console.log('生成模拟文件内容');
       // 生成模拟文件内容
       const content = generateFileContent({ ...patent, ...document }, document.type);
       
@@ -303,72 +294,90 @@ PDF 文档内容
 
 // 下载真实文件
 export const downloadRealFile = async (
-  doc: any,
+  documentObj: any,
   options: DownloadOptions = {}
 ): Promise<void> => {
   try {
-    // 如果是 blob URL，直接下载
-    if (doc.fileUrl.startsWith('blob:')) {
-      const link = document.createElement('a');
-      link.href = doc.fileUrl;
-      link.download = options.filename || doc.name;
+    const filename = options.filename || documentObj.name;
+    
+    // 检查是否是blob URL（本地文件）
+    if (documentObj.fileUrl && documentObj.fileUrl.startsWith('blob:')) {
+      // 直接使用blob URL下载
+      const link = window.document.createElement('a');
+      link.href = documentObj.fileUrl;
+      link.download = filename;
       link.style.display = 'none';
-      document.body.appendChild(link);
+      
+      // 添加到 DOM 并触发下载
+      window.document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      
+      // 延迟清理
+      setTimeout(() => {
+        window.document.body.removeChild(link);
+      }, 100);
       
       if (options.showProgress) {
-        console.log(`文件 ${doc.name} 下载成功`);
+        console.log(`文件 ${filename} 下载成功`);
       }
       return;
     }
     
-    // 如果是 data URL，直接下载
-    if (doc.fileUrl.startsWith('data:')) {
-      const link = document.createElement('a');
-      link.href = doc.fileUrl;
-      link.download = options.filename || doc.name;
+    // 检查是否是data URL
+    if (documentObj.fileUrl && documentObj.fileUrl.startsWith('data:')) {
+      // 直接使用data URL下载
+      const link = window.document.createElement('a');
+      link.href = documentObj.fileUrl;
+      link.download = filename;
       link.style.display = 'none';
-      document.body.appendChild(link);
+      
+      // 添加到 DOM 并触发下载
+      window.document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      
+      // 延迟清理
+      setTimeout(() => {
+        window.document.body.removeChild(link);
+      }, 100);
       
       if (options.showProgress) {
-        console.log(`文件 ${doc.name} 下载成功`);
+        console.log(`文件 ${filename} 下载成功`);
       }
       return;
     }
     
-    // 如果是网络URL，先获取文件
-    const response = await fetch(doc.fileUrl);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // 如果是HTTP URL，使用fetch
+    if (documentObj.fileUrl && (documentObj.fileUrl.startsWith('http://') || documentObj.fileUrl.startsWith('https://'))) {
+      const response = await fetch(documentObj.fileUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      
+      // 添加到 DOM 并触发下载
+      window.document.body.appendChild(link);
+      link.click();
+      
+      // 延迟清理
+      setTimeout(() => {
+        window.document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      if (options.showProgress) {
+        console.log(`文件 ${filename} 下载成功`);
+      }
+      return;
     }
     
-    const blob = await response.blob();
-    const filename = options.filename || doc.name;
-    
-    // 创建下载链接
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    
-    // 添加到 DOM 并触发下载
-    document.body.appendChild(link);
-    link.click();
-    
-    // 延迟清理
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
-    
-    if (options.showProgress) {
-      console.log(`文件 ${filename} 下载成功`);
-    }
+    throw new Error('不支持的文件URL格式');
   } catch (error) {
     console.error('下载真实文件失败:', error);
     throw new Error('文件下载失败，请检查文件是否存在');

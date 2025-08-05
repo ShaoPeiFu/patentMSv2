@@ -1,15 +1,17 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-// 错误类型枚举
-export enum ErrorType {
-  NETWORK = 'NETWORK',
-  VALIDATION = 'VALIDATION',
-  AUTHENTICATION = 'AUTHENTICATION',
-  AUTHORIZATION = 'AUTHORIZATION',
-  NOT_FOUND = 'NOT_FOUND',
-  SERVER_ERROR = 'SERVER_ERROR',
-  UNKNOWN = 'UNKNOWN'
-}
+// 错误类型常量
+export const ErrorType = {
+  NETWORK: 'NETWORK',
+  VALIDATION: 'VALIDATION',
+  AUTHENTICATION: 'AUTHENTICATION',
+  AUTHORIZATION: 'AUTHORIZATION',
+  NOT_FOUND: 'NOT_FOUND',
+  SERVER_ERROR: 'SERVER_ERROR',
+  UNKNOWN: 'UNKNOWN'
+} as const;
+
+export type ErrorType = typeof ErrorType[keyof typeof ErrorType];
 
 // 自定义错误类
 export class AppError extends Error {

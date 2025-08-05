@@ -149,13 +149,7 @@ import { useUserStore } from "@/stores/user";
 import { ElMessage } from "element-plus";
 import { hasPermission } from "@/utils/permissions";
 
-import {
-  ArrowLeft,
-  Plus,
-  Check,
-  Refresh,
-  Close,
-} from "@element-plus/icons-vue";
+import { ArrowLeft, Check, Refresh, Close } from "@element-plus/icons-vue";
 import type { FormInstance, FormRules } from "element-plus";
 
 const router = useRouter();
@@ -237,7 +231,7 @@ const rules: FormRules = {
     { required: true, message: "请确认密码", trigger: "blur" },
     {
       validator: (
-        rule: unknown,
+        _rule: unknown,
         value: string,
         callback: (error?: Error) => void
       ) => {
@@ -291,7 +285,6 @@ const handleReset = () => {
   if (formRef.value) {
     formRef.value.resetFields();
   }
-  };
 };
 
 // 生命周期

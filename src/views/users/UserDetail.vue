@@ -111,14 +111,7 @@ import { ref, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { ElMessage } from "element-plus";
-import {
-  ArrowLeft,
-  Edit,
-  UserFilled,
-  Lock,
-  Bell,
-  Setting,
-} from "@element-plus/icons-vue";
+import { ArrowLeft, Edit } from "@element-plus/icons-vue";
 import type { User } from "@/stores/user";
 import { getRoleTagType } from "@/utils/tagTypes";
 

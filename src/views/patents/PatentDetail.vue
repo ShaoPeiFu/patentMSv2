@@ -106,76 +106,94 @@
         </div>
       </el-card>
 
-      <!-- 文档管理 -->
+      <!-- 文档版本管理 -->
       <el-card class="documents-card">
         <template #header>
           <div class="card-header">
-            <h3>文档管理</h3>
-            <el-button
-              type="primary"
-              size="small"
-              @click="showUploadDialog = true"
-            >
-              <el-icon><Upload /></el-icon>
-              上传文档
-            </el-button>
+            <h3>文档版本管理</h3>
+            <el-switch
+              v-model="useAdvancedDocumentManagement"
+              active-text="高级版本管理"
+              inactive-text="简单文档管理"
+              @change="handleDocumentModeChange"
+            />
           </div>
         </template>
 
-        <div class="table-header">
-          <div class="table-actions">
-            <el-button
-              type="primary"
-              size="small"
-              @click="downloadAllDocuments"
-              :disabled="!patent.documents.length"
-            >
-              <el-icon><Download /></el-icon>
-              批量下载
-            </el-button>
-          </div>
+        <!-- 高级版本管理 -->
+        <div v-if="useAdvancedDocumentManagement">
+          <DocumentVersionManager :document-id="patentId" />
         </div>
 
-        <el-table :data="patent.documents" stripe>
-          <el-table-column prop="name" label="文档名称" />
-          <el-table-column prop="type" label="类型">
-            <template #default="{ row }">
-              <el-tag>{{ getDocumentTypeText(row.type) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="fileSize" label="文件大小">
-            <template #default="{ row }">
-              {{ formatFileSize(row.fileSize) }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="uploadedAt" label="上传时间">
-            <template #default="{ row }">
-              {{ formatDate(row.uploadedAt) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="200">
-            <template #default="{ row }">
-              <div class="action-buttons">
-                <el-button
-                  size="small"
-                  type="primary"
-                  @click="downloadDocument(row)"
-                >
-                  <el-icon><Download /></el-icon>
-                  下载
-                </el-button>
-                <el-button
-                  size="small"
-                  type="danger"
-                  @click="deleteDocument(row)"
-                >
-                  <el-icon><Delete /></el-icon>
-                  删除
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
+        <!-- 简单文档管理（保留原有功能） -->
+        <div v-else>
+          <div class="table-header">
+            <div class="table-actions">
+              <el-button
+                type="primary"
+                size="small"
+                @click="showUploadDialog = true"
+              >
+                <el-icon><Upload /></el-icon>
+                上传文档
+              </el-button>
+              <el-button
+                type="primary"
+                size="small"
+                @click="downloadAllDocuments"
+                :disabled="!patent.documents.length"
+              >
+                <el-icon><Download /></el-icon>
+                批量下载
+              </el-button>
+              <el-button type="success" size="small" @click="testDownload">
+                <el-icon><Download /></el-icon>
+                测试下载
+              </el-button>
+            </div>
+          </div>
+
+          <el-table :data="patent.documents" stripe>
+            <el-table-column prop="name" label="文档名称" />
+            <el-table-column prop="type" label="类型">
+              <template #default="{ row }">
+                <el-tag>{{ getDocumentTypeText(row.type) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="fileSize" label="文件大小">
+              <template #default="{ row }">
+                {{ formatFileSize(row.fileSize) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="uploadedAt" label="上传时间">
+              <template #default="{ row }">
+                {{ formatDate(row.uploadedAt) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200">
+              <template #default="{ row }">
+                <div class="action-buttons">
+                  <el-button
+                    size="small"
+                    type="primary"
+                    @click="downloadDocument(row)"
+                  >
+                    <el-icon><Download /></el-icon>
+                    下载
+                  </el-button>
+                  <el-button
+                    size="small"
+                    type="danger"
+                    @click="deleteDocument(row)"
+                  >
+                    <el-icon><Delete /></el-icon>
+                    删除
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-card>
 
       <!-- 文件上传对话框 -->
@@ -297,27 +315,25 @@
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { usePatentStore } from "@/stores/patent";
+// import { useDocumentStore } from "@/stores/document";
 import { ElMessage, ElMessageBox } from "element-plus";
-import {
-  ArrowLeft,
-  Edit,
-  Download,
-  Document,
-  Upload,
-  Delete,
-} from "@element-plus/icons-vue";
+import { Edit, Download, Upload, Delete } from "@element-plus/icons-vue";
 import type { Patent, PatentDocument } from "@/types/patent";
 import {
   downloadPatentDocument,
   downloadMultipleDocuments,
 } from "@/utils/download";
 import FileUpload from "@/components/FileUpload.vue";
+import DocumentVersionManager from "@/components/DocumentVersionManager.vue";
 
 const route = useRoute();
 const router = useRouter();
 const patentStore = usePatentStore();
+// const documentStore = useDocumentStore();
 
 const patent = ref<Patent | null>(null);
+const patentId = ref<string>("");
+const useAdvancedDocumentManagement = ref(true);
 
 // 文件上传相关
 const showUploadDialog = ref(false);
@@ -348,6 +364,15 @@ const fetchPatentDetail = async () => {
 const editPatent = () => {
   if (patent.value) {
     router.push(`/dashboard/patents/${patent.value.id}/edit`);
+  }
+};
+
+// 文档管理模式切换
+const handleDocumentModeChange = (useAdvanced: boolean) => {
+  if (useAdvanced) {
+    ElMessage.success("已切换到高级版本管理模式");
+  } else {
+    ElMessage.success("已切换到简单文档管理模式");
   }
 };
 
@@ -449,6 +474,8 @@ const handleUploadDialogClose = () => {
 // 处理文件上传成功
 const handleFileUploaded = (file: any) => {
   console.log("文件上传成功:", file);
+  console.log("文件URL:", file.url);
+  console.log("文件响应:", file.response);
 };
 
 // 处理上传提交
@@ -465,7 +492,23 @@ const handleUploadSubmit = async () => {
   uploading.value = true;
   try {
     const uploadedFile = uploadForm.value.files[0] as any;
-    console.log('上传的文件信息:', uploadedFile);
+
+    console.log("上传的文件信息:", uploadedFile);
+    console.log("文件URL:", uploadedFile.url);
+    console.log("文件响应:", uploadedFile.response);
+
+    // 获取文件URL
+    let fileUrl = "";
+    if (uploadedFile.url) {
+      fileUrl = uploadedFile.url;
+    } else if (uploadedFile.response && uploadedFile.response.url) {
+      fileUrl = uploadedFile.response.url;
+    } else if (uploadedFile.raw) {
+      // 如果没有URL，从原始文件创建blob URL
+      fileUrl = URL.createObjectURL(uploadedFile.raw);
+    }
+
+    console.log("最终文件URL:", fileUrl);
 
     // 创建新的文档记录
     const newDocument: PatentDocument = {
@@ -478,13 +521,13 @@ const handleUploadSubmit = async () => {
         | "grant"
         | "amendment"
         | "other",
-      fileUrl: uploadedFile.url || uploadedFile.response?.url || "",
+      fileUrl: fileUrl,
       fileSize: uploadedFile.size || 0,
       uploadedAt: new Date().toISOString(),
       uploadedBy: 1, // 当前用户ID
     };
 
-    console.log('创建的文档记录:', newDocument);
+    console.log("创建的文档记录:", newDocument);
 
     // 添加到专利文档列表
     if (patent.value) {
@@ -513,6 +556,37 @@ const handleUploadSubmit = async () => {
     ElMessage.error("上传文档失败");
   } finally {
     uploading.value = false;
+  }
+};
+
+// 测试下载功能
+const testDownload = () => {
+  if (!patent.value?.documents.length) {
+    ElMessage.warning("没有可下载的文档");
+    return;
+  }
+
+  const testDoc = patent.value.documents[0];
+  console.log("测试下载文档:", testDoc);
+  console.log("文档URL:", testDoc.fileUrl);
+
+  // 直接测试下载
+  if (testDoc.fileUrl && testDoc.fileUrl.startsWith("blob:")) {
+    const link = window.document.createElement("a");
+    link.href = testDoc.fileUrl;
+    link.download = testDoc.name;
+    link.style.display = "none";
+
+    window.document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      window.document.body.removeChild(link);
+    }, 100);
+
+    ElMessage.success("测试下载完成");
+  } else {
+    ElMessage.error("文档URL无效，无法下载");
   }
 };
 
@@ -614,6 +688,7 @@ const formatDate = (dateString: string) => {
 };
 
 onMounted(() => {
+  patentId.value = route.params.id as string;
   fetchPatentDetail();
 });
 </script>

@@ -28,7 +28,7 @@ interface Emits {
   (e: "validation-change", isValid: boolean, errors: string[]): void;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+const _props = withDefaults(defineProps<Props>(), {
   showErrors: false,
 });
 

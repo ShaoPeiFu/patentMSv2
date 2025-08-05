@@ -29,7 +29,7 @@
           class="document-item"
         >
           <div class="document-info">
-            <el-icon class="document-icon"><Document /></el-icon>
+            <el-icon class="document-icon"><DocumentIcon /></el-icon>
             <div class="document-details">
               <div class="document-name">{{ doc.name }}</div>
               <div class="document-meta">
@@ -101,7 +101,12 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { ElMessage } from "element-plus";
-import { Document, Download, Delete, Plus } from "@element-plus/icons-vue";
+import {
+  Document as DocumentIcon,
+  Download,
+  Delete,
+  Plus,
+} from "@element-plus/icons-vue";
 import FileUpload from "@/components/FileUpload.vue";
 import {
   downloadPatentDocument,

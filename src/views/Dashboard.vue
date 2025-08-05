@@ -12,34 +12,6 @@
           </h1>
           <p class="welcome-subtitle">{{ getCurrentTime() }}</p>
         </div>
-        <div class="welcome-visual">
-          <div class="progress-ring">
-            <svg class="progress-svg" width="120" height="120">
-              <circle
-                class="progress-bg"
-                cx="60"
-                cy="60"
-                r="50"
-                stroke-width="8"
-              />
-              <circle
-                class="progress-fill"
-                cx="60"
-                cy="60"
-                r="50"
-                stroke-width="8"
-                :stroke-dasharray="circumference"
-                :stroke-dashoffset="
-                  circumference - (progress / 100) * circumference
-                "
-              />
-            </svg>
-            <div class="progress-text">
-              <span class="progress-number">{{ progress }}%</span>
-              <span class="progress-label">完成度</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -135,28 +107,10 @@ import { usePatentStore } from "@/stores/patent";
 import { useActivityStore } from "@/stores/activity";
 import { ElMessage } from "element-plus";
 import type { QuickAction } from "@/types/patent";
-import {
-  Document,
-  UserFilled,
-  DataAnalysis,
-  Plus,
-  Check,
-  Clock,
-  Warning,
-  TrendCharts,
-  Bell,
-  Star,
-  Setting,
-  Folder,
-} from "@element-plus/icons-vue";
 
 const router = useRouter();
 const userStore = useUserStore();
 const activityStore = useActivityStore();
-
-// 进度环相关
-const progress = ref(75);
-const circumference = 2 * Math.PI * 50;
 
 // 统计数据
 const stats = computed(() => {
@@ -337,11 +291,6 @@ const refreshActivities = () => {
 
 // 组件挂载时初始化动画和数据
 onMounted(async () => {
-  // 模拟进度动画
-  setTimeout(() => {
-    progress.value = 85;
-  }, 1000);
-
   // 主动加载专利数据，确保统计数据正确显示
   try {
     const patentStore = usePatentStore();
@@ -422,56 +371,6 @@ onMounted(async () => {
   font-size: 1.1em;
   opacity: 0.8;
   margin: 0;
-}
-
-.welcome-visual {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.progress-ring {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.progress-svg {
-  transform: rotate(-90deg);
-}
-
-.progress-bg {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.2);
-}
-
-.progress-fill {
-  fill: none;
-  stroke: #67c23a;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1s ease-in-out;
-  filter: drop-shadow(0 0 10px rgba(103, 194, 58, 0.5));
-}
-
-.progress-text {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.progress-number {
-  font-size: 1.8em;
-  font-weight: 700;
-  color: white;
-}
-
-.progress-label {
-  font-size: 0.9em;
-  opacity: 0.8;
-  margin-top: 5px;
 }
 
 /* 统计卡片 */

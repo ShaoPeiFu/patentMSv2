@@ -42,7 +42,7 @@
         class="file-item"
       >
         <div class="file-info">
-          <el-icon class="file-icon"><Document /></el-icon>
+          <el-icon class="file-icon"><DocumentIcon /></el-icon>
           <div class="file-details">
             <div class="file-name">{{ file.name }}</div>
             <div class="file-size">{{ formatFileSize(file.size) }}</div>
@@ -78,7 +78,12 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { ElMessage } from "element-plus";
-import { Upload, Document, Download, Delete } from "@element-plus/icons-vue";
+import {
+  Upload,
+  Document as DocumentIcon,
+  Download,
+  Delete,
+} from "@element-plus/icons-vue";
 
 interface FileItem {
   uid?: string;

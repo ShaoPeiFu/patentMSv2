@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { hasPermission, getAccessibleRoutes, PERMISSION_MESSAGES } from '@/utils/permissions'
+import { hasPermission, PERMISSION_MESSAGES } from '@/utils/permissions'
 import { ElMessage } from 'element-plus'
 
 const routes: RouteRecordRaw[] = [
@@ -47,6 +47,12 @@ const routes: RouteRecordRaw[] = [
     name: 'TestPerformance',
     component: () => import('@/views/TestPerformance.vue'),
     meta: { title: '性能测试' }
+  },
+  {
+    path: '/test-electronic-signature',
+    name: 'TestElectronicSignature',
+    component: () => import('@/views/TestElectronicSignature.vue'),
+    meta: { title: '电子签名测试' }
   },
   {
     path: '/test-permission',
@@ -168,7 +174,111 @@ const routes: RouteRecordRaw[] = [
         name: 'SystemSettings',
         component: () => import('@/views/SystemSettings.vue'),
         meta: { title: '系统设置' }
-      }
+      },
+      {
+        path: 'notifications',
+        name: 'NotificationPage',
+        component: () => import('@/views/NotificationPage.vue'),
+        meta: { title: '通知中心' }
+      },
+      {
+        path: 'search-demo',
+        name: 'SearchDemo',
+        component: () => import('@/views/SearchDemo.vue'),
+        meta: { title: '搜索功能演示' }
+      },
+              {
+          path: 'document-demo',
+          name: 'DocumentManagementDemo',
+          component: () => import('@/views/DocumentManagementDemo.vue'),
+          meta: { title: '文档版本管理演示' }
+        },
+        {
+          path: 'workflows',
+          name: 'WorkflowManagement',
+          component: () => import('@/views/WorkflowManagement.vue'),
+          meta: { title: '工作流管理' }
+        },
+              {
+        path: 'workflow-demo',
+        name: 'WorkflowDemo',
+        component: () => import('@/views/WorkflowDemo.vue'),
+        meta: { title: '工作流演示' }
+      },
+      {
+        path: 'analytics',
+        name: 'AdvancedAnalytics',
+        component: () => import('@/views/AdvancedAnalytics.vue'),
+        meta: { title: '高级统计分析' }
+      },
+      {
+        path: 'analytics-demo',
+        name: 'AnalyticsDemo',
+        component: () => import('@/views/AnalyticsDemo.vue'),
+        meta: { title: '分析功能演示' }
+      },
+      {
+        path: 'visualization',
+        name: 'VisualizationCenter',
+        component: () => import('@/views/VisualizationCenter.vue'),
+        meta: { title: '可视化中心' }
+      },
+      {
+        path: 'fees',
+        name: 'FeeManagement',
+        component: () => import('@/views/FeeManagement.vue'),
+        meta: { title: '费用管理' }
+      },
+      {
+        path: 'deadlines',
+        name: 'DeadlineManagement',
+        component: () => import('@/views/DeadlineManagement.vue'),
+        meta: { title: '期限管理' }
+      },
+      {
+        path: 'contracts',
+        name: 'ContractManagement',
+        component: () => import('@/views/ContractManagement.vue'),
+        meta: { title: '合同管理' }
+      },
+      {
+        path: 'test-fee',
+        name: 'TestFee',
+        component: () => import('@/views/TestFee.vue'),
+        meta: { title: '费用管理测试' }
+      },
+      {
+        path: 'test-fee-fix',
+        name: 'TestFeeFix',
+        component: () => import('@/views/TestFeeFix.vue'),
+        meta: { title: '费用管理修复测试' }
+      },
+      {
+        path: 'test-fee-permission',
+        name: 'TestFeePermission',
+        component: () => import('@/views/TestFeePermission.vue'),
+        meta: { title: '费用管理权限测试' }
+      },
+      {
+        path: 'test-fee-fix',
+        name: 'TestFeeFix',
+        component: () => import('@/views/TestFeeFix.vue'),
+        meta: { title: '费用管理修复测试' }
+      },
+      {
+        path: 'test-deadline-fix',
+        name: 'TestDeadlineFix',
+        component: () => import('@/views/TestDeadlineFix.vue'),
+        meta: { title: '期限管理修复测试' }
+      },
+      {
+        path: 'visualization-demo',
+        name: 'VisualizationDemo',
+        component: () => import('@/views/VisualizationDemo.vue'),
+        meta: { title: '可视化演示' }
+      },
+
+
     ]
   }
 ]
@@ -206,7 +316,7 @@ const checkRoutePermission = (path: string, userRole: string): boolean => {
 }
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   // 设置页面标题
   document.title = `专利管理系统 - ${to.meta.title || '首页'}`
   

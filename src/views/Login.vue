@@ -22,7 +22,7 @@
       <div class="login-header">
         <div class="logo-container">
           <div class="logo-icon">
-            <el-icon><Document /></el-icon>
+            <el-icon><DocumentIcon /></el-icon>
           </div>
           <div class="logo-text">
             <h1>欢迎回来</h1>
@@ -110,7 +110,12 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import { useUserStore } from "@/stores/user";
-import { User, Plus, House } from "@element-plus/icons-vue";
+import {
+  User,
+  Plus,
+  House,
+  Document as DocumentIcon,
+} from "@element-plus/icons-vue";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -143,7 +148,7 @@ const loginRules: FormRules = {
 };
 
 // 粒子样式
-const getParticleStyle = (index: number) => {
+const getParticleStyle = (_index: number) => {
   const size = Math.random() * 4 + 2;
   const x = Math.random() * 100;
   const y = Math.random() * 100;

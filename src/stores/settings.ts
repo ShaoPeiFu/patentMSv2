@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, reactive } from 'vue';
+import { reactive } from 'vue';
 
 export interface SystemSettings {
   // 基本设置

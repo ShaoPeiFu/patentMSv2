@@ -46,147 +46,169 @@
       </el-row>
     </div>
 
-    <!-- 筛选条件 -->
-    <div class="filter-section">
-      <el-card>
-        <el-form :model="filterForm" inline>
-          <el-form-item label="审核状态">
-            <el-select
-              v-model="filterForm.status"
-              placeholder="选择状态"
-              clearable
-            >
-              <el-option label="待审核" value="pending" />
-              <el-option label="已通过" value="approved" />
-              <el-option label="已拒绝" value="rejected" />
-            </el-select>
-          </el-form-item>
+    <!-- 主要内容区域 -->
+    <el-tabs v-model="activeTab" class="review-tabs">
+      <el-tab-pane label="待审核" name="pending">
+        <!-- 筛选条件 -->
+        <div class="filter-section">
+          <el-card>
+            <el-form :model="filterForm" inline>
+              <el-form-item label="审核状态">
+                <el-select
+                  v-model="filterForm.status"
+                  placeholder="选择状态"
+                  clearable
+                >
+                  <el-option label="待审核" value="pending" />
+                  <el-option label="已通过" value="approved" />
+                  <el-option label="已拒绝" value="rejected" />
+                </el-select>
+              </el-form-item>
 
-          <el-form-item label="专利类型">
-            <el-select
-              v-model="filterForm.type"
-              placeholder="选择类型"
-              clearable
-            >
-              <el-option label="发明专利" value="invention" />
-              <el-option label="实用新型" value="utility_model" />
-              <el-option label="外观设计" value="design" />
-              <el-option label="软件专利" value="software" />
-            </el-select>
-          </el-form-item>
+              <el-form-item label="专利类型">
+                <el-select
+                  v-model="filterForm.type"
+                  placeholder="选择类型"
+                  clearable
+                >
+                  <el-option label="发明专利" value="invention" />
+                  <el-option label="实用新型" value="utility_model" />
+                  <el-option label="外观设计" value="design" />
+                  <el-option label="软件专利" value="software" />
+                </el-select>
+              </el-form-item>
 
-          <el-form-item label="提交日期">
-            <el-date-picker
-              v-model="filterForm.dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              format="YYYY-MM-DD"
-              value-format="YYYY-MM-DD"
-            />
-          </el-form-item>
+              <el-form-item label="提交日期">
+                <el-date-picker
+                  v-model="filterForm.dateRange"
+                  type="daterange"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                />
+              </el-form-item>
 
-          <el-form-item>
-            <el-button type="primary" @click="handleFilter"> 筛选 </el-button>
-            <el-button @click="handleResetFilter">重置</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-    </div>
-
-    <!-- 审核列表 -->
-    <div class="list-section">
-      <el-card>
-        <template #header>
-          <div class="card-header">
-            <span>审核列表 (共 {{ filteredReviews.length }} 条记录)</span>
-          </div>
-        </template>
-
-        <el-table
-          :data="filteredReviews"
-          v-loading="loading"
-          stripe
-          @selection-change="handleSelectionChange"
-        >
-          <el-table-column type="selection" width="55" />
-
-          <el-table-column prop="patentNumber" label="专利号" width="150" />
-
-          <el-table-column prop="title" label="专利标题" min-width="200">
-            <template #default="{ row }">
-              <el-link @click="viewPatent(row.patentId)">{{
-                row.title
-              }}</el-link>
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="type" label="类型" width="120">
-            <template #default="{ row }">
-              <el-tag size="small">{{ getTypeText(row.type) }}</el-tag>
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="applicant" label="申请人" width="120" />
-
-          <el-table-column prop="submitDate" label="提交日期" width="120" />
-
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)">
-                {{ getStatusText(row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="priority" label="优先级" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getPriorityType(row.priority)" size="small">
-                {{ getPriorityText(row.priority) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="操作" width="250" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" @click="viewReview(row.id)">
-                查看详情
-              </el-button>
-              <el-button
-                v-if="row.status === 'pending'"
-                size="small"
-                type="success"
-                @click="approveReview(row.id)"
-              >
-                通过
-              </el-button>
-              <el-button
-                v-if="row.status === 'pending'"
-                size="small"
-                type="danger"
-                @click="rejectReview(row.id)"
-              >
-                拒绝
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <!-- 分页 -->
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="currentPage"
-            v-model:page-size="pageSize"
-            :page-sizes="[10, 20, 50, 100]"
-            :total="total"
-            layout="total, sizes, prev, pager, next, jumper"
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-          />
+              <el-form-item>
+                <el-button type="primary" @click="handleFilter">
+                  筛选
+                </el-button>
+                <el-button @click="handleResetFilter">重置</el-button>
+              </el-form-item>
+            </el-form>
+          </el-card>
         </div>
-      </el-card>
-    </div>
+
+        <!-- 审核列表 -->
+        <div class="list-section">
+          <el-card>
+            <template #header>
+              <div class="card-header">
+                <span>审核列表 (共 {{ filteredReviews.length }} 条记录)</span>
+              </div>
+            </template>
+
+            <el-table
+              :data="filteredReviews"
+              v-loading="loading"
+              stripe
+              @selection-change="handleSelectionChange"
+            >
+              <el-table-column type="selection" width="55" />
+
+              <el-table-column prop="patentNumber" label="专利号" width="150" />
+
+              <el-table-column prop="title" label="专利标题" min-width="200">
+                <template #default="{ row }">
+                  <el-link @click="viewPatent(row.patentId)">{{
+                    row.title
+                  }}</el-link>
+                </template>
+              </el-table-column>
+
+              <el-table-column prop="type" label="类型" width="120">
+                <template #default="{ row }">
+                  <el-tag size="small">{{ getTypeText(row.type) }}</el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column prop="applicant" label="申请人" width="120" />
+
+              <el-table-column prop="submitDate" label="提交日期" width="120" />
+
+              <el-table-column prop="status" label="状态" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="getStatusType(row.status)">
+                    {{ getStatusText(row.status) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column prop="priority" label="优先级" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="getPriorityType(row.priority)" size="small">
+                    {{ getPriorityText(row.priority) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="操作" width="250" fixed="right">
+                <template #default="{ row }">
+                  <el-button size="small" @click="viewReview(row.id)">
+                    查看详情
+                  </el-button>
+                  <el-button
+                    v-if="row.status === 'pending'"
+                    size="small"
+                    type="success"
+                    @click="approveReview(row.id)"
+                  >
+                    通过
+                  </el-button>
+                  <el-button
+                    v-if="row.status === 'pending'"
+                    size="small"
+                    type="danger"
+                    @click="rejectReview(row.id)"
+                  >
+                    拒绝
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <!-- 分页 -->
+            <div class="pagination-wrapper">
+              <el-pagination
+                v-model:current-page="currentPage"
+                v-model:page-size="pageSize"
+                :page-sizes="[10, 20, 50, 100]"
+                :total="total"
+                layout="total, sizes, prev, pager, next, jumper"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
+              />
+            </div>
+          </el-card>
+        </div>
+      </el-tab-pane>
+
+      <!-- 委托管理 -->
+      <el-tab-pane label="委托管理" name="delegation">
+        <DelegationManagement />
+      </el-tab-pane>
+
+      <!-- 超时处理 -->
+      <el-tab-pane label="超时处理" name="timeout">
+        <TimeoutManagement />
+      </el-tab-pane>
+
+      <!-- 工作流统计 -->
+      <el-tab-pane label="工作流统计" name="statistics">
+        <WorkflowStatistics />
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- 审核详情对话框 -->
     <el-dialog
@@ -286,6 +308,9 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useUserStore } from "@/stores/user";
 import { usePatentStore } from "@/stores/patent";
 import { hasPermission } from "@/utils/permissions";
+import DelegationManagement from "@/components/DelegationManagement.vue";
+import TimeoutManagement from "@/components/TimeoutManagement.vue";
+import WorkflowStatistics from "@/components/WorkflowStatistics.vue";
 
 // 审核记录接口
 interface ReviewItem {
@@ -330,6 +355,7 @@ const total = ref(0);
 const selectedReviews = ref<number[]>([]);
 const reviewDialogVisible = ref(false);
 const currentReview = ref<ReviewItem | null>(null);
+const activeTab = ref("pending");
 
 // 筛选表单
 const filterForm = reactive({

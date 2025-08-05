@@ -147,18 +147,12 @@ import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { ElMessage } from "element-plus";
 
-import {
-  ArrowLeft,
-  Plus,
-  Check,
-  Refresh,
-  Close,
-} from "@element-plus/icons-vue";
+import { ArrowLeft, Check, Refresh, Close } from "@element-plus/icons-vue";
 import type { FormInstance, FormRules } from "element-plus";
 import type { User } from "@/stores/user";
 import {
   canEditUser,
-  canChangeUserPassword,
+  // canChangeUserPassword,
   hasPermission,
   PERMISSION_MESSAGES,
 } from "@/utils/permissions";
@@ -291,9 +285,12 @@ const submitUserUpdate = async () => {
       }
 
       // 如果设置了新密码，则更新密码（只有编辑自己时才能修改密码）
-      if (form.newPassword && isEditingSelf.value) {
+      if ((form as any).newPassword && isEditingSelf.value) {
         // 使用changePassword方法，它会验证原密码
-        await userStore.changePassword(form.oldPassword, form.newPassword);
+        await userStore.changePassword(
+          (form as any).oldPassword,
+          (form as any).newPassword
+        );
         ElMessage.success("密码修改成功");
       }
     }

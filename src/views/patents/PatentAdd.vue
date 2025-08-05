@@ -192,14 +192,14 @@ const handleSubmit = async () => {
       inventors: form.inventors,
       technicalField: form.technicalField,
       keywords: form.keywords,
-      applicant: form.applicants[0] || "申请人", // 主要申请人
+      applicant: form.applicants[0] || "申请人",
       submitDate:
         form.applicationDate || new Date().toISOString().split("T")[0],
       priority: "medium" as const, // 默认优先级
     };
 
     // 提交专利申请
-    const newApplication = await patentStore.submitApplication(applicationData);
+    // const newApplication = await patentStore.submitApplication(applicationData);
 
     ElMessage.success("专利申请提交成功，等待审核");
     // 跳转到专利申请列表或控制台

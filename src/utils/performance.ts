@@ -6,7 +6,7 @@ export function debounce<T extends (...args: any[]) => any>(
   wait: number,
   immediate?: boolean
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: number | null = null;
   
   return function(...args: Parameters<T>) {
     const callNow = immediate && !timeout;
@@ -17,10 +17,10 @@ export function debounce<T extends (...args: any[]) => any>(
     
     timeout = setTimeout(() => {
       timeout = null;
-      if (!immediate) func.apply(this, args);
+      if (!immediate) func.apply(null, args);
     }, wait);
     
-    if (callNow) func.apply(this, args);
+    if (callNow) func.apply(null, args);
   };
 }
 
@@ -33,7 +33,7 @@ export function throttle<T extends (...args: any[]) => any>(
   
   return function(...args: Parameters<T>) {
     if (!inThrottle) {
-      func.apply(this, args);
+      func.apply(null, args);
       inThrottle = true;
       setTimeout(() => inThrottle = false, limit);
     }
@@ -109,7 +109,7 @@ export function memoize<T extends (...args: any[]) => any>(fn: T): T {
     if (cache.has(key)) {
       return cache.get(key);
     }
-    const result = fn.apply(this, args);
+    const result = fn.apply(null, args);
     cache.set(key, result);
     return result;
   }) as T;

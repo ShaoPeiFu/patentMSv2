@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { Patent, PatentCategory, PatentStatus, PatentType, PatentStatistics } from '@/types/patent'
 import { useActivityStore } from './activity'
 import { useUserStore } from './user'
+import { useNotificationStore } from './notification'
 
 // 专利申请接口
 export interface PatentApplication {
@@ -556,6 +557,7 @@ export const usePatentStore = defineStore('patent', () => {
   const submitApplication = async (applicationData: Omit<PatentApplication, 'id' | 'patentId' | 'status' | 'reviewHistory'>) => {
     const userStore = useUserStore()
     const activityStore = useActivityStore()
+    const notificationStore = useNotificationStore()
     
     try {
       // 生成申请ID
@@ -595,6 +597,13 @@ export const usePatentStore = defineStore('patent', () => {
         status: 'pending',
         statusText: '待审核'
       })
+      
+      // 发送通知
+      notificationStore.createPatentNotification(
+        applicationData.title,
+        'created',
+        userStore.currentUser?.id || 0
+      )
       
       return newApplication
     } catch (error) {

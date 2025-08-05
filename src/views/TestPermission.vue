@@ -72,7 +72,12 @@
           <el-button
             type="primary"
             @click="testAddUser"
-            :disabled="!hasPermission('canAddUsers')"
+            :disabled="
+              !hasPermission(
+                userStore.currentUser?.role || 'user',
+                'canAddUsers'
+              )
+            "
           >
             测试添加用户
           </el-button>
@@ -80,7 +85,12 @@
           <el-button
             type="success"
             @click="testViewUsers"
-            :disabled="!hasPermission('canViewUsers')"
+            :disabled="
+              !hasPermission(
+                userStore.currentUser?.role || 'user',
+                'canViewUsers'
+              )
+            "
           >
             测试查看用户
           </el-button>
@@ -88,7 +98,12 @@
           <el-button
             type="warning"
             @click="testAddPatent"
-            :disabled="!hasPermission('canAddPatents')"
+            :disabled="
+              !hasPermission(
+                userStore.currentUser?.role || 'user',
+                'canAddPatents'
+              )
+            "
           >
             测试添加专利
           </el-button>
@@ -96,7 +111,12 @@
           <el-button
             type="info"
             @click="testReviewCenter"
-            :disabled="!hasPermission('canAccessReviewCenter')"
+            :disabled="
+              !hasPermission(
+                userStore.currentUser?.role || 'user',
+                'canAccessReviewCenter'
+              )
+            "
           >
             测试审核中心
           </el-button>

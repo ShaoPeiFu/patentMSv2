@@ -1,68 +1,74 @@
 <template>
   <div class="test-simple-download">
     <h1>简单下载测试</h1>
-    
+
     <el-card class="test-section">
       <template #header>
         <h3>文件上传测试</h3>
       </template>
-      
-      <el-upload
-        action="#"
-        :before-upload="handleBeforeUpload"
-        :auto-upload="false"
-        :on-change="handleFileChange"
+
+      <FileUpload
+        v-model="uploadedFiles"
+        :multiple="false"
         accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-        :limit="1"
-        drag
-      >
-        <div class="upload-content">
-          <el-icon class="upload-icon"><Upload /></el-icon>
-          <div class="upload-text">
-            <span>点击上传</span>
-            <span class="upload-tip">或将文件拖拽到此处</span>
+        :max-size="20"
+        hint="请选择要上传的测试文件"
+        @file-uploaded="handleFileUploaded"
+      />
+    </el-card>
+
+    <el-card class="test-section">
+      <template #header>
+        <h3>下载测试</h3>
+      </template>
+
+      <div v-if="testDocument" class="document-info">
+        <div class="document-item">
+          <el-icon class="document-icon"><DocumentIcon /></el-icon>
+          <div class="document-details">
+            <div class="document-name">{{ testDocument.name }}</div>
+            <div class="document-size">
+              {{ formatFileSize(testDocument.fileSize) }}
+            </div>
+            <div class="document-url">{{ testDocument.fileUrl }}</div>
+          </div>
+          <div class="document-actions">
+            <el-button type="primary" @click="downloadTestFile">
+              <el-icon><Download /></el-icon>
+              下载文件
+            </el-button>
+            <el-button type="success" @click="downloadAsBlob">
+              <el-icon><Download /></el-icon>
+              下载为Blob
+            </el-button>
+            <el-button type="warning" @click="downloadAsDataURL">
+              <el-icon><Download /></el-icon>
+              下载为DataURL
+            </el-button>
           </div>
         </div>
-      </el-upload>
-      
-      <div v-if="selectedFile" class="file-info">
-        <h4>已选择文件:</h4>
-        <p><strong>文件名:</strong> {{ selectedFile.name }}</p>
-        <p><strong>文件大小:</strong> {{ formatFileSize(selectedFile.size) }}</p>
-        <p><strong>文件类型:</strong> {{ selectedFile.type }}</p>
-        
-        <el-button type="primary" @click="downloadFile">
-          <el-icon><Download /></el-icon>
-          下载文件
-        </el-button>
+      </div>
+
+      <div v-else class="no-file">
+        <p>请先上传一个文件进行测试</p>
       </div>
     </el-card>
 
     <el-card class="test-section">
       <template #header>
-        <h3>测试文档列表</h3>
+        <h3>测试日志</h3>
       </template>
-      
-      <div class="test-documents">
+
+      <div class="test-logs">
         <div
-          v-for="(doc, index) in testDocuments"
-          :key="doc.id"
-          class="test-document"
+          v-for="(log, index) in testLogs"
+          :key="index"
+          class="log-item"
+          :class="log.type"
         >
-          <div class="doc-info">
-            <span class="doc-name">{{ doc.name }}</span>
-            <span class="doc-url">{{ doc.fileUrl }}</span>
-          </div>
-          <el-button size="small" type="primary" @click="downloadTestDoc(doc)">
-            下载
-          </el-button>
+          <span class="log-time">{{ log.time }}</span>
+          <span class="log-message">{{ log.message }}</span>
         </div>
-      </div>
-      
-      <div class="test-actions">
-        <el-button type="success" @click="addTestDocument">
-          添加测试文档
-        </el-button>
       </div>
     </el-card>
   </div>
@@ -71,99 +77,154 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { ElMessage } from "element-plus";
-import { Upload, Download } from "@element-plus/icons-vue";
-import { downloadPatentDocument } from "@/utils/download";
+import { Document as DocumentIcon, Download } from "@element-plus/icons-vue";
+import FileUpload from "@/components/FileUpload.vue";
 
 // 响应式数据
-const selectedFile = ref<File | null>(null);
-const testDocuments = ref<any[]>([]);
+const uploadedFiles = ref<any[]>([]);
+const testDocument = ref<any>(null);
+const testLogs = ref<
+  Array<{ time: string; message: string; type: "success" | "error" | "info" }>
+>([]);
 
-// 处理文件选择
-const handleFileChange = (file: any) => {
-  selectedFile.value = file.raw;
-  console.log('选择的文件:', file.raw);
+// 处理文件上传
+const handleFileUploaded = (file: any) => {
+  addLog("info", `文件上传成功: ${file.name}`);
+  addLog("info", `文件URL: ${file.url}`);
+  addLog("info", `文件大小: ${formatFileSize(file.size)}`);
+
+  testDocument.value = {
+    name: file.name,
+    fileSize: file.size,
+    fileUrl: file.url,
+    type: "application",
+  };
+
+  addLog("success", `测试文档已设置: ${file.name}`);
 };
 
-// 处理文件上传前
-const handleBeforeUpload = (file: File) => {
-  console.log('准备上传文件:', file);
-  return false; // 阻止自动上传
-};
-
-// 下载文件
-const downloadFile = () => {
-  if (!selectedFile.value) {
-    ElMessage.warning('请先选择文件');
+// 下载测试文件
+const downloadTestFile = async () => {
+  if (!testDocument.value) {
+    ElMessage.warning("请先上传文件");
     return;
   }
-  
+
   try {
-    // 创建 blob URL
-    const blobUrl = URL.createObjectURL(selectedFile.value);
-    
-    // 创建下载链接
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = selectedFile.value.name;
-    link.style.display = 'none';
-    
-    // 触发下载
-    document.body.appendChild(link);
+    addLog("info", `开始下载: ${testDocument.value.name}`);
+
+    const link = window.document.createElement("a");
+    link.href = testDocument.value.fileUrl;
+    link.download = testDocument.value.name;
+    link.style.display = "none";
+
+    window.document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    
-    // 清理 blob URL
+
     setTimeout(() => {
-      URL.revokeObjectURL(blobUrl);
+      window.document.body.removeChild(link);
     }, 100);
-    
-    ElMessage.success('文件下载成功');
+
+    addLog("success", `下载完成: ${testDocument.value.name}`);
+    ElMessage.success(`下载完成: ${testDocument.value.name}`);
   } catch (error) {
-    console.error('下载失败:', error);
-    ElMessage.error('下载失败');
+    addLog("error", `下载失败: ${error}`);
+    ElMessage.error(`下载失败: ${error}`);
   }
 };
 
-// 添加测试文档
-const addTestDocument = () => {
-  const testDoc = {
-    id: Date.now(),
-    name: `测试文档_${Date.now()}`,
-    type: 'application',
-    fileUrl: 'data:text/plain;base64,VGVzdCBkb2N1bWVudCBjb250ZW50',
-    fileSize: 1024,
-    uploadedAt: new Date().toISOString(),
-    uploadedBy: 1,
-  };
-  
-  testDocuments.value.push(testDoc);
-  ElMessage.success('测试文档已添加');
-};
+// 下载为Blob
+const downloadAsBlob = async () => {
+  if (!testDocument.value) {
+    ElMessage.warning("请先上传文件");
+    return;
+  }
 
-// 下载测试文档
-const downloadTestDoc = async (doc: any) => {
   try {
-    console.log('下载测试文档:', doc);
-    
-    const mockPatent = {
-      id: 999,
-      patentNumber: "TEST001",
-      title: "测试专利",
-    };
-    
-    await downloadPatentDocument(doc, mockPatent, {
-      filename: `${doc.name}_TEST`,
-      showProgress: true,
-    });
-    
-    ElMessage.success(`下载完成: ${doc.name}`);
+    addLog("info", `开始Blob下载: ${testDocument.value.name}`);
+
+    // 从blob URL获取blob
+    const response = await fetch(testDocument.value.fileUrl);
+    const blob = await response.blob();
+
+    const url = URL.createObjectURL(blob);
+    const link = window.document.createElement("a");
+    link.href = url;
+    link.download = `blob_${testDocument.value.name}`;
+    link.style.display = "none";
+
+    window.document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      window.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+
+    addLog("success", `Blob下载完成: ${testDocument.value.name}`);
+    ElMessage.success(`Blob下载完成: ${testDocument.value.name}`);
   } catch (error) {
-    console.error('下载失败:', error);
-    ElMessage.error(`下载失败: ${doc.name}`);
+    addLog("error", `Blob下载失败: ${error}`);
+    ElMessage.error(`Blob下载失败: ${error}`);
   }
 };
 
-// 格式化文件大小
+// 下载为DataURL
+const downloadAsDataURL = async () => {
+  if (!testDocument.value) {
+    ElMessage.warning("请先上传文件");
+    return;
+  }
+
+  try {
+    addLog("info", `开始DataURL下载: ${testDocument.value.name}`);
+
+    // 从blob URL获取blob并转换为data URL
+    const response = await fetch(testDocument.value.fileUrl);
+    const blob = await response.blob();
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataURL = reader.result as string;
+
+      const link = window.document.createElement("a");
+      link.href = dataURL;
+      link.download = `dataurl_${testDocument.value.name}`;
+      link.style.display = "none";
+
+      window.document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        window.document.body.removeChild(link);
+      }, 100);
+
+      addLog("success", `DataURL下载完成: ${testDocument.value.name}`);
+      ElMessage.success(`DataURL下载完成: ${testDocument.value.name}`);
+    };
+
+    reader.readAsDataURL(blob);
+  } catch (error) {
+    addLog("error", `DataURL下载失败: ${error}`);
+    ElMessage.error(`DataURL下载失败: ${error}`);
+  }
+};
+
+// 添加日志
+const addLog = (type: "success" | "error" | "info", message: string) => {
+  testLogs.value.unshift({
+    time: new Date().toLocaleTimeString(),
+    message,
+    type,
+  });
+
+  // 限制日志数量
+  if (testLogs.value.length > 20) {
+    testLogs.value = testLogs.value.slice(0, 20);
+  }
+};
+
+// 工具函数
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -189,85 +250,116 @@ const formatFileSize = (bytes: number): string => {
   color: #2c3e50;
 }
 
-.upload-content {
+.document-info {
+  margin-top: 16px;
+}
+
+.document-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
-}
-
-.upload-icon {
-  font-size: 48px;
-  color: #c0c4cc;
-  margin-bottom: 16px;
-}
-
-.upload-text {
-  font-size: 16px;
-  color: #606266;
-  margin-bottom: 8px;
-}
-
-.upload-tip {
-  font-size: 14px;
-  color: #c0c4cc;
-  margin-top: 4px;
-}
-
-.file-info {
-  margin-top: 20px;
   padding: 16px;
   border: 1px solid #e4e7ed;
   border-radius: 8px;
   background: #fafafa;
 }
 
-.file-info h4 {
-  margin: 0 0 12px 0;
-  color: #2c3e50;
+.document-icon {
+  font-size: 24px;
+  color: #409eff;
+  margin-right: 16px;
 }
 
-.file-info p {
-  margin: 8px 0;
-  color: #606266;
-}
-
-.test-documents {
-  margin-bottom: 20px;
-}
-
-.test-document {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  background: #fafafa;
-}
-
-.doc-info {
+.document-details {
   flex: 1;
 }
 
-.doc-name {
-  display: block;
-  font-weight: 500;
+.document-name {
+  font-size: 16px;
   color: #303133;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.document-size {
+  font-size: 14px;
+  color: #909399;
   margin-bottom: 4px;
 }
 
-.doc-url {
-  display: block;
+.document-url {
   font-size: 12px;
+  color: #c0c4cc;
+  word-break: break-all;
+  max-width: 300px;
+}
+
+.document-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.no-file {
+  text-align: center;
+  padding: 40px;
   color: #909399;
+}
+
+.test-logs {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.log-item {
+  display: flex;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.log-item:last-child {
+  border-bottom: none;
+}
+
+.log-time {
+  color: #909399;
+  min-width: 80px;
+}
+
+.log-message {
+  flex: 1;
   word-break: break-all;
 }
 
-.test-actions {
-  margin-top: 16px;
+.log-item.success .log-message {
+  color: #67c23a;
 }
-</style> 
+
+.log-item.error .log-message {
+  color: #f56c6c;
+}
+
+.log-item.info .log-message {
+  color: #409eff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .document-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .document-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+</style>

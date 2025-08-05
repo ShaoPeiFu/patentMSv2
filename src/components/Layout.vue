@@ -6,7 +6,7 @@
         class="particle"
         v-for="i in 50"
         :key="i"
-        :style="getParticleStyle(i)"
+        :style="getParticleStyle()"
       ></div>
     </div>
 
@@ -46,9 +46,9 @@
           @mouseleave="handleNavLeave"
         >
           <div class="nav-icon">
-            <el-icon class="nav-icon-svg"
-              ><component :is="item.icon"
-            /></el-icon>
+            <el-icon class="nav-icon-svg">
+              <component :is="item.icon" />
+            </el-icon>
           </div>
           <span class="nav-text" v-show="!sidebarCollapsed">{{
             item.title
@@ -112,13 +112,7 @@
 
         <div class="top-actions">
           <!-- 通知中心 -->
-          <div class="notification-center">
-            <el-badge :value="3" class="notification-badge">
-              <el-button circle class="notification-btn">
-                <el-icon><Bell /></el-icon>
-              </el-button>
-            </el-badge>
-          </div>
+          <NotificationCenter />
 
           <!-- 用户下拉菜单 -->
           <el-dropdown>
@@ -178,27 +172,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, shallowRef, markRaw } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
-import { hasPermission, getAccessibleRoutes } from "@/utils/permissions";
+import { hasPermission } from "@/utils/permissions";
+import NotificationCenter from "./NotificationCenter.vue";
 import {
   House,
-  Document,
   Plus,
-  Edit,
   Folder,
   User,
   DataAnalysis,
+  DataBoard,
   Lock,
   SwitchButton,
   Setting,
-  Bell,
   ArrowLeft,
   ArrowRight,
   ArrowDown,
   Files,
   View,
+  Money,
+  Clock,
+  Document as DocumentIcon,
 } from "@element-plus/icons-vue";
 
 const router = useRouter();
@@ -211,49 +207,85 @@ const allMenuItems = [
   {
     path: "/dashboard",
     title: "控制台",
-    icon: markRaw(House),
+    icon: House,
     exact: true,
     permission: null, // 所有用户都可以访问
   },
   {
     path: "/dashboard/patents",
     title: "专利管理",
-    icon: markRaw(Files),
+    icon: Files,
     exact: false,
     permission: "canViewPatents",
   },
   {
     path: "/dashboard/patents/add",
     title: "专利申请",
-    icon: markRaw(Plus),
+    icon: Plus,
     exact: true,
     permission: "canAddPatents",
   },
   {
     path: "/dashboard/review",
     title: "审核中心",
-    icon: markRaw(View),
+    icon: View,
     exact: true,
     permission: "canAccessReviewCenter",
   },
   {
     path: "/dashboard/categories",
     title: "分类管理",
-    icon: markRaw(Folder),
+    icon: Folder,
     exact: true,
     permission: "canManageCategories",
   },
   {
     path: "/dashboard/users",
     title: "用户管理",
-    icon: markRaw(User),
+    icon: User,
     exact: true,
     permission: "canViewUsers",
   },
   {
     path: "/dashboard/reports",
     title: "统计报表",
-    icon: markRaw(DataAnalysis),
+    icon: DataAnalysis,
+    exact: true,
+    permission: "canViewReports",
+  },
+
+  {
+    path: "/dashboard/analytics",
+    title: "高级分析",
+    icon: DataAnalysis,
+    exact: true,
+    permission: "canViewReports",
+  },
+  {
+    path: "/dashboard/visualization",
+    title: "可视化中心",
+    icon: DataBoard,
+    exact: true,
+    permission: "canViewReports",
+  },
+  {
+    path: "/dashboard/fees",
+    title: "费用管理",
+    icon: Money,
+    exact: true,
+    permission: "canViewReports",
+  },
+  {
+    path: "/dashboard/deadlines",
+    title: "期限管理",
+    icon: Clock,
+    exact: true,
+    permission: "canViewReports",
+  },
+  {
+    path: "/dashboard/contracts",
+    title: "合同管理",
+    icon: DocumentIcon,
     exact: true,
     permission: "canViewReports",
   },
@@ -330,7 +362,7 @@ const handleNavLeave = (event: Event) => {
 };
 
 // 粒子样式
-const getParticleStyle = (index: number) => {
+const getParticleStyle = () => {
   const size = Math.random() * 4 + 2;
   const x = Math.random() * 100;
   const y = Math.random() * 100;
@@ -479,7 +511,8 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   /* 确保完全贴合左侧边缘 */
   transform: translateX(0);
 }
@@ -584,7 +617,6 @@ onMounted(() => {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-fill-color: transparent;
   white-space: nowrap;
 }
 
@@ -612,17 +644,35 @@ onMounted(() => {
 /* 折叠时的指示器位置 */
 .sidebar-collapsed .collapse-indicator {
   position: static;
-  transform: none;
-  margin: 0 auto;
-}
-
-.sidebar-collapsed .collapse-indicator {
   transform: translateY(-50%);
+  margin: 0 auto;
 }
 
 .sidebar-nav {
   padding: 0 15px;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  padding-bottom: 100px; /* 为用户卡片留出空间 */
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 /* 折叠时的导航容器 */
@@ -644,13 +694,10 @@ onMounted(() => {
   cursor: pointer;
 }
 
-/* 折叠时的导航项间距 */
+/* 折叠时的导航项间距和样式 */
 .sidebar-collapsed .nav-item {
   margin-bottom: 4px;
   border-radius: 8px;
-}
-
-.sidebar-collapsed .nav-item {
   padding: 15px 5px;
   justify-content: flex-start;
   align-items: center;
@@ -920,27 +967,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 20px;
-}
-
-.notification-center {
-  position: relative;
-}
-
-.notification-badge {
-  position: relative;
-}
-
-.notification-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #666;
-  transition: all 0.3s ease;
-}
-
-.notification-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }
 
 .user-dropdown {

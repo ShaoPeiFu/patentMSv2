@@ -5,7 +5,7 @@
       <h1>{{ isEdit ? "编辑专利" : "添加专利" }}</h1>
       <div class="header-actions">
         <el-button @click="saveDraft">
-          <el-icon><Document /></el-icon>
+          <el-icon><DocumentIcon /></el-icon>
           保存草稿
         </el-button>
         <el-button type="primary" @click="savePatent" :loading="saving">
@@ -360,13 +360,12 @@ import { useActivityStore } from "@/stores/activity";
 import { useUserStore } from "@/stores/user";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
-  ArrowLeft,
   Check,
-  Document,
+  Document as DocumentIcon,
   Upload,
   Plus,
 } from "@element-plus/icons-vue";
-import type { Patent, PatentDocument, PatentFee } from "@/types/patent";
+import type { PatentDocument, PatentFee } from "@/types/patent";
 import type { FormInstance, FormRules } from "element-plus";
 import { hasPermission } from "@/utils/permissions";
 

@@ -17,7 +17,7 @@
       <div class="register-header">
         <div class="logo-container">
           <div class="logo-icon">
-            <el-icon><Document /></el-icon>
+            <el-icon><DocumentIcon /></el-icon>
           </div>
           <div class="logo-text">
             <h1>加入我们</h1>
@@ -170,7 +170,12 @@ import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import { useUserStore } from "@/stores/user";
 import type { RegisterForm } from "@/stores/user";
-import { Plus, User, House } from "@element-plus/icons-vue";
+import {
+  Plus,
+  User,
+  House,
+  Document as DocumentIcon,
+} from "@element-plus/icons-vue";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -298,7 +303,6 @@ const handleRegister = async () => {
 const goToLogin = () => {
   router.push("/login");
 };
-
 // 返回首页
 const goHome = () => {
   router.push("/");
@@ -619,4 +623,3 @@ const goHome = () => {
   }
 }
 </style>
- 

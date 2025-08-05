@@ -111,7 +111,7 @@
           <el-table-column prop="email" label="邮箱" min-width="200" />
           <el-table-column prop="role" label="角色" width="100">
             <template #default="{ row }">
-              <el-tag :type="getRoleType(row.role)">{{
+              <el-tag :type="getRoleTagType(row.role)">{{
                 getRoleText(row.role)
               }}</el-tag>
             </template>
@@ -137,12 +137,12 @@
 
 <script setup lang="ts">
 import { reactive } from "vue";
-import { useRouter } from "vue-router";
+// import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useUserStore } from "@/stores/user";
 import { getRoleTagType } from "@/utils/tagTypes";
 
-const router = useRouter();
+// const router = useRouter();
 const userStore = useUserStore();
 
 const testRegisterForm = reactive({
@@ -167,7 +167,10 @@ const testRegister = async () => {
       agreeTerms: true,
     };
 
-    await userStore.register(form);
+    await userStore.register({
+      ...form,
+      phone: "13800138000", // 添加缺失的phone字段
+    });
     ElMessage.success("注册成功！");
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "注册失败");

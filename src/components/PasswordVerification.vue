@@ -37,7 +37,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, defineEmits, defineProps, watch } from "vue";
-import { ElMessage, FormInstance } from "element-plus";
+import { ElMessage, type FormInstance } from "element-plus";
 import { useUserStore } from "@/stores/user";
 
 interface Props {

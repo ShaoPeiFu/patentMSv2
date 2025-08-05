@@ -22,7 +22,7 @@
       <div class="nav-container">
         <div class="nav-logo">
           <div class="logo-icon">
-            <el-icon><Document /></el-icon>
+            <el-icon><DocumentIcon /></el-icon>
           </div>
           <span class="logo-text">专利管理系统</span>
         </div>
@@ -104,7 +104,7 @@
           <div class="hero-visual">
             <div class="floating-card card-1">
               <div class="card-content">
-                <el-icon class="card-icon"><Document /></el-icon>
+                <el-icon class="card-icon"><DocumentIcon /></el-icon>
                 <h3>专利管理</h3>
                 <p>高效管理企业专利资产</p>
               </div>
@@ -193,13 +193,6 @@ import {
   House,
   Setting,
   DataAnalysis,
-  Lock,
-  Search,
-  Bell,
-  Star,
-  TrendCharts,
-  Check,
-  Clock,
 } from "@element-plus/icons-vue";
 
 const features = [
@@ -263,7 +256,7 @@ const stats = [
 ];
 
 // 粒子样式
-const getParticleStyle = (index: number) => {
+const getParticleStyle = (_index: number) => {
   const size = Math.random() * 6 + 2;
   const x = Math.random() * 100;
   const y = Math.random() * 100;
