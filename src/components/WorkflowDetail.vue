@@ -248,11 +248,13 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="viewProcess(row)">
-              查看详情
-            </el-button>
+            <div class="action-buttons">
+              <el-button size="small" @click="viewProcess(row)">
+                查看详情
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -657,5 +659,21 @@ const viewProcess = (process: DocumentApprovalProcess) => {
     gap: 12px;
     align-items: stretch;
   }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.action-buttons .el-button + .el-button {
+  margin-left: 0;
 }
 </style>

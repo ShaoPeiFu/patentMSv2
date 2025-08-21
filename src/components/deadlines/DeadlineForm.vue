@@ -6,20 +6,32 @@
     label-width="120px"
     class="deadline-form"
   >
+    <el-form-item label="专利选择" prop="patentId">
+      <el-select
+        v-model="form.patentId"
+        placeholder="选择专利"
+        style="width: 100%"
+        filterable
+        remote
+        :remote-method="searchPatents"
+        :loading="patentSearchLoading"
+        @change="handlePatentChange"
+      >
+        <el-option
+          v-for="patent in patentOptions"
+          :key="patent.id"
+          :label="`${patent.patentNumber} - ${patent.title}`"
+          :value="patent.id"
+        />
+      </el-select>
+    </el-form-item>
+
     <el-form-item label="专利号" prop="patentNumber">
-      <el-input
-        v-model="form.patentNumber"
-        placeholder="输入专利号"
-        clearable
-      />
+      <el-input v-model="form.patentNumber" placeholder="专利号" readonly />
     </el-form-item>
 
     <el-form-item label="专利标题" prop="patentTitle">
-      <el-input
-        v-model="form.patentTitle"
-        placeholder="输入专利标题"
-        clearable
-      />
+      <el-input v-model="form.patentTitle" placeholder="专利标题" readonly />
     </el-form-item>
 
     <el-form-item label="期限类型" prop="deadlineType">
@@ -119,9 +131,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from "vue";
+import { ref, reactive, watch, onMounted } from "vue";
+import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import type { DeadlineType } from "@/types/deadline";
+import { patentAPI } from "@/utils/api";
 
 const props = defineProps<{
   initialData?: any;
@@ -134,6 +148,8 @@ const emit = defineEmits<{
 
 const formRef = ref<FormInstance>();
 const loading = ref(false);
+const patentSearchLoading = ref(false);
+const patentOptions = ref<any[]>([]);
 
 const form = reactive({
   patentId: 0,
@@ -153,6 +169,34 @@ const form = reactive({
   notes: "",
 });
 
+// 搜索专利
+const searchPatents = async (query: string) => {
+  if (query.length < 2) return;
+
+  try {
+    patentSearchLoading.value = true;
+    const response = await patentAPI.getPatents({
+      search: query,
+      limit: 10,
+    });
+    patentOptions.value = response.patents || [];
+  } catch (error) {
+    console.error("搜索专利失败:", error);
+    ElMessage.error("搜索专利失败");
+  } finally {
+    patentSearchLoading.value = false;
+  }
+};
+
+// 处理专利选择变化
+const handlePatentChange = (patentId: number) => {
+  const selectedPatent = patentOptions.value.find((p) => p.id === patentId);
+  if (selectedPatent) {
+    form.patentNumber = selectedPatent.patentNumber;
+    form.patentTitle = selectedPatent.title;
+  }
+};
+
 // 监听initialData变化，填充表单
 watch(
   () => props.initialData,
@@ -165,11 +209,18 @@ watch(
   { immediate: true }
 );
 
+// 组件挂载时加载专利列表
+onMounted(async () => {
+  try {
+    const response = await patentAPI.getPatents({ limit: 20 });
+    patentOptions.value = response.patents || [];
+  } catch (error) {
+    console.error("加载专利列表失败:", error);
+  }
+});
+
 const rules: FormRules = {
-  patentNumber: [{ required: false, message: "请输入专利号", trigger: "blur" }],
-  patentTitle: [
-    { required: false, message: "请输入专利标题", trigger: "blur" },
-  ],
+  patentId: [{ required: true, message: "请选择专利", trigger: "change" }],
   deadlineType: [
     { required: true, message: "请选择期限类型", trigger: "change" },
   ],
@@ -189,8 +240,11 @@ const handleSubmit = async () => {
     await formRef.value.validate();
     loading.value = true;
 
-    // 生成专利ID
-    form.patentId = Date.now();
+    // 验证专利信息
+    if (!form.patentId || !form.patentNumber || !form.patentTitle) {
+      ElMessage.error("请选择有效的专利");
+      return;
+    }
 
     emit("submit", { ...form });
   } catch (error) {

@@ -1,773 +1,1551 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import type { Patent, PatentCategory, PatentStatus, PatentType, PatentStatistics } from '@/types/patent'
-import { useActivityStore } from './activity'
-import { useUserStore } from './user'
-import { useNotificationStore } from './notification'
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import type {
+  Patent,
+  PatentStatus,
+  PatentType,
+  PatentStatistics,
+} from "@/types/patent";
+import { useActivityStore } from "./activity";
+import { useUserStore } from "./user";
+import { useNotificationStore } from "./notification";
+import {
+  patentAPI,
+  activityAPI,
+  patentAnalysisAPI,
+  patentFamilyAPI,
+  patentCitationAPI,
+  patentEvaluationAPI,
+  patentAlertAPI,
+  patentSearchAPI,
+  enhancedMaintenanceAPI,
+  patentQualityAPI,
+  enhancedStatsAPI,
+  patentMonitoringAPI,
+  patentLicenseAPI,
+  patentLitigationAPI,
+  patentTransactionAPI,
+} from "@/utils/api";
 
 // 专利申请接口
 export interface PatentApplication {
-  id: number
-  patentId: number
-  patentNumber: string
-  title: string
-  type: PatentType
-  applicant: string
-  submitDate: string
-  status: 'pending' | 'approved' | 'rejected'
-  priority: 'high' | 'medium' | 'low'
-  reviewHistory: ReviewHistoryItem[]
-  description: string
-  technicalField: string
-  keywords: string[]
-  applicants: string[]
-  inventors: string[]
-  categoryId: number
+  id: number;
+  patentId: number;
+  patentNumber: string;
+  title: string;
+  type: PatentType;
+  applicant: string;
+  submitDate: string;
+  status: "pending" | "approved" | "rejected";
+  priority: "high" | "medium" | "low";
+  reviewHistory: ReviewHistoryItem[];
+  description: string;
+  technicalField: string;
+  keywords: string[];
+  applicants: string[];
+  inventors: string[];
+  categoryId: number;
 }
 
 // 审核历史项
 export interface ReviewHistoryItem {
-  id: number
-  reviewer: string
-  action: string
-  comment?: string
-  time: string
+  id: number;
+  reviewer: string;
+  action: string;
+  comment?: string;
+  time: string;
 }
 
-export const usePatentStore = defineStore('patent', () => {
+export const usePatentStore = defineStore("patent", () => {
   // 状态
-  const patents = ref<Patent[]>([])
-  const categories = ref<PatentCategory[]>([])
-  const applications = ref<PatentApplication[]>([]) // 专利申请列表
-  const loading = ref(false)
-  const currentPatent = ref<Patent | null>(null)
-  const searchKeyword = ref('')
-  const filterStatus = ref<PatentStatus | ''>('')
-  const filterType = ref<PatentType | ''>('')
-  const filterCategory = ref<number | ''>('')
+  const patents = ref<Patent[]>([]);
+  const applications = ref<PatentApplication[]>([]); // 专利申请列表
+  const loading = ref(false);
+  const currentPatent = ref<Patent | null>(null);
+  const searchKeyword = ref("");
+  const filterStatus = ref<PatentStatus | "">("");
+  const filterType = ref<PatentType | "">("");
+  const filterCategory = ref<number | "">("");
+  const total = ref(0); // 新增：用于存储总专利数
 
   // 计算属性
-  const totalPatents = computed(() => patents.value.length)
-  
-  const patentsByStatus = computed(() => {
-    const grouped = patents.value.reduce((acc, patent) => {
-      const status = patent.status
-      if (!acc[status]) {
-        acc[status] = []
-      }
-      acc[status].push(patent)
-      return acc
-    }, {} as Record<PatentStatus, Patent[]>)
-    return grouped
-  })
+  const totalPatents = computed(() =>
+    patents.value ? patents.value.length : 0
+  );
 
-  const patentsByCategory = computed(() => {
-    return patents.value.reduce((acc, patent) => {
-      const categoryId = patent.categoryId
-      if (!acc[categoryId]) {
-        acc[categoryId] = []
+  const patentsByStatus = computed(() => {
+    if (!patents.value) return {} as Record<PatentStatus, Patent[]>;
+    const grouped = patents.value.reduce((acc, patent) => {
+      const status = patent.status;
+      if (!acc[status]) {
+        acc[status] = [];
       }
-      acc[categoryId].push(patent)
-      return acc
-    }, {} as Record<number, Patent[]>)
-  })
+      acc[status].push(patent);
+      return acc;
+    }, {} as Record<PatentStatus, Patent[]>);
+    return grouped;
+  });
 
   // 真实统计数据计算
   const statistics = computed((): PatentStatistics => {
-    const now = new Date()
-    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-    const sixMonthsFromNow = new Date(now.getTime() + 6 * 30 * 24 * 60 * 60 * 1000)
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(
+      now.getTime() + 30 * 24 * 60 * 60 * 1000
+    );
 
-    const expiringSoon = patents.value.filter(patent => {
-      if (!patent.expirationDate) return false
-      const expirationDate = new Date(patent.expirationDate)
-      return expirationDate <= thirtyDaysFromNow && expirationDate > now
-    }).length
+    const expiringSoon = patents.value
+      ? patents.value.filter((_patent) => {
+          if (!_patent.expirationDate) return false;
+          const expirationDate = new Date(_patent.expirationDate);
+          return expirationDate <= thirtyDaysFromNow && expirationDate > now;
+        }).length
+      : 0;
 
-    const maintenanceDue = patents.value.filter(patent => {
-      // 检查是否有即将到期的维护费
-      const hasMaintenanceFee = patent.fees.some(fee => {
-        const dueDate = new Date(fee.dueDate)
-        return dueDate <= sixMonthsFromNow && dueDate > now && fee.type === 'maintenance'
-      })
-      return hasMaintenanceFee
-    }).length
+    const maintenanceDue = patents.value
+      ? patents.value.filter((_patent) => {
+          // 检查是否有即将到期的维护费
+          // 由于我们没有包含 fees 关联字段，这里暂时返回 0
+          // TODO: 如果需要准确的维护费信息，需要在查询时包含 fees 字段
+          return false;
+        }).length
+      : 0;
 
-    const recentApplications = patents.value.filter(patent => {
-      const applicationDate = new Date(patent.applicationDate)
-      const sixMonthsAgo = new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000)
-      return applicationDate >= sixMonthsAgo
-    }).length
+    const recentApplications = patents.value
+      ? patents.value.filter((p) => {
+          const applicationDate = new Date(p.applicationDate);
+          const sixMonthsAgo = new Date(
+            now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000
+          );
+          return applicationDate >= sixMonthsAgo;
+        }).length
+      : 0;
 
     return {
-      total: patents.value.length,
+      total: patents.value ? patents.value.length : 0,
       byStatus: Object.keys(patentsByStatus.value).reduce((acc, status) => {
-        acc[status as PatentStatus] = patentsByStatus.value[status as PatentStatus]?.length || 0
-        return acc
+        acc[status as PatentStatus] =
+          patentsByStatus.value[status as PatentStatus]?.length || 0;
+        return acc;
       }, {} as Record<PatentStatus, number>),
-      byType: patents.value.reduce((acc, patent) => {
-        acc[patent.type] = (acc[patent.type] || 0) + 1
-        return acc
-      }, {} as Record<PatentType, number>),
-      byCategory: Object.keys(patentsByCategory.value).reduce((acc, categoryId) => {
-        acc[parseInt(categoryId)] = patentsByCategory.value[parseInt(categoryId)]?.length || 0
-        return acc
-      }, {} as Record<number, number>),
-      byYear: patents.value.reduce((acc, patent) => {
-        const year = new Date(patent.applicationDate).getFullYear()
-        acc[year] = (acc[year] || 0) + 1
-        return acc
-      }, {} as Record<number, number>),
+      byType: patents.value
+        ? patents.value.reduce((acc, patent) => {
+            acc[patent.type] = (acc[patent.type] || 0) + 1;
+            return acc;
+          }, {} as Record<PatentType, number>)
+        : ({} as Record<PatentType, number>),
+      byCategory: {} as Record<number, number>,
+      byYear: patents.value
+        ? patents.value.reduce((acc, patent) => {
+            const year = new Date(patent.applicationDate).getFullYear();
+            acc[year] = (acc[year] || 0) + 1;
+            return acc;
+          }, {} as Record<number, number>)
+        : ({} as Record<number, number>),
       recentApplications,
       expiringSoon,
-      maintenanceDue
-    }
-  })
+      maintenanceDue,
+    };
+  });
 
   // 过滤后的专利列表
   const filteredPatents = computed(() => {
-    let filtered = patents.value
+    if (!patents.value) return [];
+    let filtered = patents.value;
 
     // 关键词搜索
     if (searchKeyword.value.trim()) {
-      const keyword = searchKeyword.value.toLowerCase()
-      filtered = filtered.filter(patent => 
-        patent.title.toLowerCase().includes(keyword) ||
-        patent.description.toLowerCase().includes(keyword) ||
-        patent.patentNumber.toLowerCase().includes(keyword) ||
-        patent.abstract.toLowerCase().includes(keyword) ||
-        patent.keywords.some(k => k.toLowerCase().includes(keyword)) ||
-        patent.applicants.some(a => a.toLowerCase().includes(keyword)) ||
-        patent.inventors.some(i => i.toLowerCase().includes(keyword))
-      )
+      const keyword = searchKeyword.value.toLowerCase();
+      filtered = filtered.filter(
+        (patent) =>
+          patent.title.toLowerCase().includes(keyword) ||
+          patent.description?.toLowerCase().includes(keyword) ||
+          false ||
+          patent.patentNumber.toLowerCase().includes(keyword) ||
+          patent.abstract?.toLowerCase().includes(keyword) ||
+          false ||
+          (patent.keywords &&
+            Array.isArray(patent.keywords) &&
+            patent.keywords.some((k) => k.toLowerCase().includes(keyword))) ||
+          (patent.applicants &&
+            Array.isArray(patent.applicants) &&
+            patent.applicants.some((a) => a.toLowerCase().includes(keyword))) ||
+          (patent.inventors &&
+            Array.isArray(patent.inventors) &&
+            patent.inventors.some((i) => i.toLowerCase().includes(keyword)))
+      );
     }
 
     // 状态过滤
     if (filterStatus.value) {
-      filtered = filtered.filter(patent => patent.status === filterStatus.value)
+      filtered = filtered.filter(
+        (patent) => patent.status === filterStatus.value
+      );
     }
 
     // 类型过滤
     if (filterType.value) {
-      filtered = filtered.filter(patent => patent.type === filterType.value)
+      filtered = filtered.filter((patent) => patent.type === filterType.value);
     }
 
-    // 分类过滤
-    if (filterCategory.value) {
-      filtered = filtered.filter(patent => patent.categoryId === filterCategory.value)
-    }
-
-    return filtered
-  })
+    return filtered;
+  });
 
   // 数据验证
   const validatePatent = (patent: Partial<Patent>): string[] => {
-    const errors: string[] = []
-    
+    const errors: string[] = [];
+
     if (!patent.title?.trim()) {
-      errors.push('专利标题不能为空')
+      errors.push("专利标题不能为空");
     }
-    
+
     if (!patent.patentNumber?.trim()) {
-      errors.push('专利号不能为空')
+      errors.push("专利号不能为空");
     }
-    
+
     if (!patent.applicationDate) {
-      errors.push('申请日期不能为空')
+      errors.push("申请日期不能为空");
     }
-    
+
     if (!patent.type) {
-      errors.push('专利类型不能为空')
+      errors.push("专利类型不能为空");
     }
-    
+
     if (!patent.status) {
-      errors.push('专利状态不能为空')
+      errors.push("专利状态不能为空");
     }
-    
+
     // 申请人验证 - 如果为空数组，使用默认值
     if (!patent.applicants || patent.applicants.length === 0) {
-      patent.applicants = ["新浪科技有限公司"]
+      patent.applicants = ["新浪科技有限公司"];
     }
-    
+
     // 发明人验证 - 如果为空数组，使用默认值
     if (!patent.inventors || patent.inventors.length === 0) {
-      patent.inventors = ["系统管理员"]
+      patent.inventors = ["系统管理员"];
     }
-    
+
     // 检查专利号是否重复（编辑时排除自身）
     if (patent.patentNumber && patent.patentNumber.trim()) {
-      const duplicatePatent = patents.value.find(p => 
-        p.patentNumber === patent.patentNumber && p.id !== patent.id
-      )
-      
-      if (duplicatePatent) {
-        errors.push('专利号已存在')
+      if (patents.value) {
+        const duplicatePatent = patents.value.find(
+          (p) => p.patentNumber === patent.patentNumber && p.id !== patent.id
+        );
+
+        if (duplicatePatent) {
+          errors.push("专利号已存在");
+        }
       }
     }
-    
-    return errors
-  }
+
+    return errors;
+  };
 
   // 方法
-  const fetchPatents = async () => {
-    loading.value = true
+  const fetchPatents = async (params?: { status?: string }) => {
+    loading.value = true;
     try {
-      // 从localStorage加载数据，如果没有则使用真实示例数据
-      const storedPatents = localStorage.getItem('patents')
-      if (storedPatents) {
-        patents.value = JSON.parse(storedPatents)
+      const apiResponse = await patentAPI.getPatents({
+        page: 1,
+        limit: 1000,
+        status: params?.status,
+      });
+
+      if (apiResponse && apiResponse.patents) {
+        patents.value = apiResponse.patents;
+        total.value = apiResponse.pagination?.total || patents.value.length;
       } else {
-        // 使用真实的示例数据
-        patents.value = [
-          {
-            id: 1,
-            title: "基于深度学习的图像识别方法及系统",
-            description: "本发明公开了一种基于深度学习的图像识别方法及系统，包括图像预处理模块、特征提取模块、分类识别模块等。该方法能够有效提高图像识别的准确率和处理速度。",
-            patentNumber: "CN202310123456.7",
-            applicationNumber: "CN202310123456.7",
-            applicationDate: "2023-01-15",
-            publicationDate: "2023-07-15",
-            grantDate: "2023-12-01",
-            expirationDate: "2043-01-15",
-            status: "approved",
-            type: "invention",
-            categoryId: 1,
-            applicants: ["新浪科技有限公司", "北京新浪网络技术有限公司"],
-            inventors: ["张三", "李四", "王五"],
-            priorityDate: "2023-01-15",
-            priorityCountry: "CN",
-            legalStatus: "active",
-            abstract: "本发明涉及计算机视觉技术领域，具体涉及一种基于深度学习的图像识别方法及系统。该方法通过改进的卷积神经网络结构，结合注意力机制和多尺度特征融合技术，实现了高精度的图像识别。",
-            claims: [
-              "1. 一种基于深度学习的图像识别方法，其特征在于，包括以下步骤：",
-              "2. 根据权利要求1所述的方法，其特征在于，所述特征提取模块采用改进的ResNet网络结构。",
-              "3. 根据权利要求1所述的方法，其特征在于，所述分类识别模块采用Softmax分类器。"
-            ],
-            technicalField: "计算机视觉、人工智能",
-            keywords: ["深度学习", "图像识别", "卷积神经网络", "计算机视觉"],
-            documents: [
-              { id: 1, patentId: 1, name: "说明书", type: "application", fileUrl: "/documents/1.pdf", fileSize: 1024000, uploadedAt: "2023-01-15T00:00:00Z", uploadedBy: 1 },
-              { id: 2, patentId: 1, name: "权利要求书", type: "application", fileUrl: "/documents/2.pdf", fileSize: 512000, uploadedAt: "2023-01-15T00:00:00Z", uploadedBy: 1 },
-              { id: 3, patentId: 1, name: "摘要附图", type: "application", fileUrl: "/documents/3.pdf", fileSize: 2048000, uploadedAt: "2023-01-15T00:00:00Z", uploadedBy: 1 }
-            ],
-            fees: [
-              { id: 1, patentId: 1, type: "application", amount: 500, currency: "CNY", dueDate: "2023-01-15", status: "paid", paidDate: "2023-01-15" },
-              { id: 2, patentId: 1, type: "maintenance", amount: 1200, currency: "CNY", dueDate: "2024-01-15", status: "pending" }
-            ],
-            timeline: [
-              { id: 1, patentId: 1, type: "application", title: "申请提交", description: "专利申请正式提交", date: "2023-01-15" },
-              { id: 2, patentId: 1, type: "publication", title: "公开", description: "专利申请公开", date: "2023-07-15" },
-              { id: 3, patentId: 1, type: "grant", title: "授权", description: "专利获得授权", date: "2023-12-01" }
-            ],
-            createdAt: "2023-01-15T00:00:00Z",
-            updatedAt: "2023-12-01T00:00:00Z",
-            createdBy: 1,
-            updatedBy: 1,
-          },
-          {
-            id: 2,
-            title: "区块链技术在供应链管理中的应用方法",
-            description: "本发明公开了一种区块链技术在供应链管理中的应用方法，通过智能合约实现供应链各环节的自动化管理和数据共享。",
-            patentNumber: "CN202310234567.8",
-            applicationNumber: "CN202310234567.8",
-            applicationDate: "2023-02-20",
-            publicationDate: "2023-08-20",
-            grantDate: "2023-12-15",
-            expirationDate: "2043-02-20",
-            status: "approved",
-            type: "invention",
-            categoryId: 2,
-            applicants: ["新浪科技有限公司"],
-            inventors: ["赵六", "钱七", "孙八"],
-            priorityDate: "2023-02-20",
-            priorityCountry: "CN",
-            legalStatus: "active",
-            abstract: "本发明涉及区块链技术领域，具体涉及一种区块链技术在供应链管理中的应用方法。该方法通过构建分布式账本和智能合约，实现了供应链各环节的透明化管理和自动化执行。",
-            claims: [
-              "1. 一种区块链技术在供应链管理中的应用方法，其特征在于，包括以下步骤：",
-              "2. 根据权利要求1所述的方法，其特征在于，所述智能合约采用Solidity语言编写。",
-              "3. 根据权利要求1所述的方法，其特征在于，所述分布式账本采用联盟链架构。"
-            ],
-            technicalField: "区块链、供应链管理",
-            keywords: ["区块链", "供应链管理", "智能合约", "分布式账本"],
-            documents: [
-              { id: 4, patentId: 2, name: "说明书", type: "application", fileUrl: "/documents/4.pdf", fileSize: 1024000, uploadedAt: "2023-02-20T00:00:00Z", uploadedBy: 1 },
-              { id: 5, patentId: 2, name: "权利要求书", type: "application", fileUrl: "/documents/5.pdf", fileSize: 512000, uploadedAt: "2023-02-20T00:00:00Z", uploadedBy: 1 }
-            ],
-            fees: [
-              { id: 3, patentId: 2, type: "application", amount: 500, currency: "CNY", dueDate: "2023-02-20", status: "paid", paidDate: "2023-02-20" },
-              { id: 4, patentId: 2, type: "maintenance", amount: 1200, currency: "CNY", dueDate: "2024-02-20", status: "pending" }
-            ],
-            timeline: [
-              { id: 4, patentId: 2, type: "application", title: "申请提交", description: "专利申请正式提交", date: "2023-02-20" },
-              { id: 5, patentId: 2, type: "publication", title: "公开", description: "专利申请公开", date: "2023-08-20" },
-              { id: 6, patentId: 2, type: "grant", title: "授权", description: "专利获得授权", date: "2023-12-15" }
-            ],
-            createdAt: "2023-02-20T00:00:00Z",
-            updatedAt: "2023-12-15T00:00:00Z",
-            createdBy: 1,
-            updatedBy: 1,
-          },
-          {
-            id: 3,
-            title: "移动端用户界面交互优化方法",
-            description: "本发明公开了一种移动端用户界面交互优化方法，通过改进的触摸响应算法和界面布局优化，提升用户体验。",
-            patentNumber: "CN202310345678.9",
-            applicationNumber: "CN202310345678.9",
-            applicationDate: "2023-03-10",
-            publicationDate: "2023-09-10",
-            grantDate: undefined,
-            expirationDate: undefined,
-            status: "pending",
-            type: "invention",
-            categoryId: 3,
-            applicants: ["新浪科技有限公司"],
-            inventors: ["周九", "吴十"],
-            priorityDate: "2023-03-10",
-            priorityCountry: "CN",
-            legalStatus: "pending",
-            abstract: "本发明涉及移动应用开发技术领域，具体涉及一种移动端用户界面交互优化方法。该方法通过改进的触摸响应算法和界面布局优化，实现了更流畅的用户交互体验。",
-            claims: [
-              "1. 一种移动端用户界面交互优化方法，其特征在于，包括以下步骤：",
-              "2. 根据权利要求1所述的方法，其特征在于，所述触摸响应算法采用多点触控技术。"
-            ],
-            technicalField: "移动应用开发、用户界面",
-            keywords: ["移动端", "用户界面", "交互优化", "触摸响应"],
-            documents: [
-              { id: 6, patentId: 3, name: "说明书", type: "application", fileUrl: "/documents/6.pdf", fileSize: 1024000, uploadedAt: "2023-03-10T00:00:00Z", uploadedBy: 1 },
-              { id: 7, patentId: 3, name: "权利要求书", type: "application", fileUrl: "/documents/7.pdf", fileSize: 512000, uploadedAt: "2023-03-10T00:00:00Z", uploadedBy: 1 }
-            ],
-            fees: [
-              { id: 5, patentId: 3, type: "application", amount: 500, currency: "CNY", dueDate: "2023-03-10", status: "paid", paidDate: "2023-03-10" }
-            ],
-            timeline: [
-              { id: 7, patentId: 3, type: "application", title: "申请提交", description: "专利申请正式提交", date: "2023-03-10" },
-              { id: 8, patentId: 3, type: "publication", title: "公开", description: "专利申请公开", date: "2023-09-10" }
-            ],
-            createdAt: "2023-03-10T00:00:00Z",
-            updatedAt: "2023-09-10T00:00:00Z",
-            createdBy: 1,
-            updatedBy: 1,
-          }
-        ]
-        // 保存真实数据到localStorage
-        localStorage.setItem('patents', JSON.stringify(patents.value))
+        patents.value = [];
+        total.value = 0;
       }
     } catch (error) {
-      console.error('获取专利列表失败:', error)
+      console.error("获取专利列表失败:", error);
+      patents.value = [];
+      total.value = 0;
+      throw error;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
-  const addPatent = async (patent: Omit<Patent, 'id'>) => {
+  const addPatent = async (patent: Omit<Patent, "id">) => {
     try {
       // 数据验证
-      const errors = validatePatent(patent)
+      const errors = validatePatent(patent);
       if (errors.length > 0) {
-        throw new Error(errors.join('; '))
+        throw new Error(errors.join("; "));
       }
 
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // 创建新专利对象，生成ID
-      const newPatent: Patent = {
-        ...patent,
-        id: Date.now(), // 使用时间戳作为临时ID
+      // 通过API创建专利
+      const apiResponse = await patentAPI.createPatent(patent);
+      if (!apiResponse || !apiResponse.id) {
+        throw new Error("创建专利失败");
       }
-      
+
+      const newPatent = apiResponse;
+
       // 添加到本地数组
-      patents.value.push(newPatent)
-      
-      // 保存到localStorage
-      localStorage.setItem('patents', JSON.stringify(patents.value))
-      
+      if (patents.value) {
+        patents.value.push(newPatent);
+      }
+
       // 记录活动
-      const activityStore = useActivityStore()
-      activityStore.addActivity({
-        type: 'patent_add',
-        title: '新增专利',
-        description: newPatent.title,
-        userId: 1, // 当前用户ID
-        userName: '系统管理员',
-        targetId: newPatent.id,
-        targetName: newPatent.title,
-        status: 'success',
-        statusText: '已完成'
-      })
-      
-      return newPatent
+      try {
+        await activityAPI.createActivity({
+          type: "patent_add",
+          title: "新增专利",
+          description: newPatent.title,
+          targetId: newPatent.id,
+          targetName: newPatent.title,
+          status: "success",
+          statusText: "已完成",
+        });
+      } catch (activityError) {
+        console.warn("记录活动失败:", activityError);
+        // 使用本地活动记录
+        const activityStore = useActivityStore();
+        activityStore.addActivity({
+          type: "patent_add",
+          title: "新增专利",
+          description: newPatent.title,
+          userId: 1, // 当前用户ID
+          userName: "系统管理员",
+          targetId: newPatent.id,
+          targetName: newPatent.title,
+          timestamp: new Date().toISOString(),
+          status: "success",
+          statusText: "已完成",
+        });
+      }
+
+      return newPatent;
     } catch (error) {
-      console.error('添加专利失败:', error)
-      throw error
+      console.error("创建专利失败:", error);
+      throw error;
     }
-  }
+  };
 
   const updatePatent = async (id: number, updates: Partial<Patent>) => {
     try {
-      // 为更新数据添加id，用于验证时排除自身
-      const updatesWithId = { ...updates, id }
-      const errors = validatePatent(updatesWithId)
-      
+      // 数据验证
+      const errors = validatePatent({
+        ...patents.value.find((p) => p.id === id),
+        ...updates,
+      } as Patent);
       if (errors.length > 0) {
-        throw new Error(errors.join('; '))
+        throw new Error(errors.join("; "));
       }
 
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const index = patents.value.findIndex(p => p.id === id)
-      if (index !== -1) {
-        patents.value[index] = {
-          ...patents.value[index],
-          ...updates,
-          updatedAt: new Date().toISOString(),
-          updatedBy: 1, // 当前用户ID
-        }
-        // 保存到localStorage
-        localStorage.setItem('patents', JSON.stringify(patents.value))
-        
-        // 记录编辑活动
-        const activityStore = useActivityStore()
-        activityStore.addActivity({
-          type: 'patent_review',
-          title: '编辑专利',
-          description: patents.value[index].title,
-          userId: 1, // 当前用户ID
-          userName: '系统管理员',
-          targetId: patents.value[index].id,
-          targetName: patents.value[index].title,
-          status: 'success',
-          statusText: '已更新'
-        })
-        
-        return patents.value[index]
+      // 通过API更新专利
+      const apiResponse = await patentAPI.updatePatent(id, updates);
+      if (!apiResponse || !apiResponse.id) {
+        throw new Error("更新专利失败");
       }
-      throw new Error('专利不存在')
+
+      // 更新本地数据
+      if (patents.value) {
+        const index = patents.value.findIndex((p) => p.id === id);
+        if (index !== -1) {
+          patents.value[index] = {
+            ...patents.value[index],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      }
+
+      return apiResponse;
     } catch (error) {
-      console.error('更新专利失败:', error)
-      throw error
+      console.error("更新专利失败:", error);
+      throw error;
     }
-  }
+  };
 
   const deletePatent = async (id: number) => {
     try {
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      patents.value = patents.value.filter(p => p.id !== id)
-      // 保存到localStorage
-      localStorage.setItem('patents', JSON.stringify(patents.value))
-    } catch (error) {
-      console.error('删除专利失败:', error)
-      throw error
-    }
-  }
+      // 通过API删除专利
+      await patentAPI.deletePatent(id);
 
-  const fetchCategories = async () => {
-    try {
-      // 从localStorage加载分类数据，如果没有则使用默认数据
-      const storedCategories = localStorage.getItem('patentCategories')
-      if (storedCategories) {
-        categories.value = JSON.parse(storedCategories)
-      } else {
-        // 使用真实的分类数据
-        categories.value = [
-          { id: 1, name: "人工智能", description: "人工智能相关专利", parentId: undefined, createdAt: "2023-01-01T00:00:00Z", updatedAt: "2023-01-01T00:00:00Z" },
-          { id: 2, name: "区块链", description: "区块链技术相关专利", parentId: undefined, createdAt: "2023-01-01T00:00:00Z", updatedAt: "2023-01-01T00:00:00Z" },
-          { id: 3, name: "移动应用", description: "移动应用开发相关专利", parentId: undefined, createdAt: "2023-01-01T00:00:00Z", updatedAt: "2023-01-01T00:00:00Z" },
-          { id: 4, name: "网络安全", description: "网络安全相关专利", parentId: undefined, createdAt: "2023-01-01T00:00:00Z", updatedAt: "2023-01-01T00:00:00Z" },
-          { id: 5, name: "大数据", description: "大数据处理相关专利", parentId: undefined, createdAt: "2023-01-01T00:00:00Z", updatedAt: "2023-01-01T00:00:00Z" },
-          { id: 6, name: "云计算", description: "云计算技术相关专利", parentId: undefined, createdAt: "2023-01-01T00:00:00Z", updatedAt: "2023-01-01T00:00:00Z" },
-          { id: 7, name: "物联网", description: "物联网技术相关专利", parentId: undefined, createdAt: "2023-01-01T00:00:00Z", updatedAt: "2023-01-01T00:00:00Z" },
-          { id: 8, name: "5G通信", description: "5G通信技术相关专利", parentId: undefined, createdAt: "2023-01-01T00:00:00Z", updatedAt: "2023-01-01T00:00:00Z" }
-        ]
-        localStorage.setItem('patentCategories', JSON.stringify(categories.value))
+      // 从本地数组中移除
+      if (patents.value) {
+        const index = patents.value.findIndex((p) => p.id === id);
+        if (index !== -1) {
+          patents.value.splice(index, 1);
+        }
       }
+
+      return true;
     } catch (error) {
-      console.error('获取分类列表失败:', error)
+      console.error("删除专利失败:", error);
+      throw error;
     }
-  }
+  };
 
   const searchPatents = (keyword: string) => {
-    searchKeyword.value = keyword
-    return filteredPatents.value
-  }
+    searchKeyword.value = keyword;
+    return filteredPatents.value;
+  };
 
-  const filterByStatus = (status: PatentStatus | '') => {
-    filterStatus.value = status
-  }
+  const filterByStatus = (status: PatentStatus | "") => {
+    filterStatus.value = status;
+  };
 
-  const filterByType = (type: PatentType | '') => {
-    filterType.value = type
-  }
-
-  const filterByCategory = (categoryId: number | '') => {
-    filterCategory.value = categoryId
-  }
+  const filterByType = (type: PatentType | "") => {
+    filterType.value = type;
+  };
 
   const clearFilters = () => {
-    searchKeyword.value = ''
-    filterStatus.value = ''
-    filterType.value = ''
-    filterCategory.value = ''
-  }
+    searchKeyword.value = "";
+    filterStatus.value = "";
+    filterType.value = "";
+    filterCategory.value = "";
+  };
 
   const getPatentById = (id: number) => {
-    return patents.value.find(p => p.id === id) || null
-  }
+    if (!patents.value) return null;
+    return patents.value.find((p) => p.id === id) || null;
+  };
 
   const getPatentsByStatus = (status: PatentStatus) => {
-    return patents.value.filter(p => p.status === status)
-  }
+    if (!patents.value) return [];
+    return patents.value.filter((p) => p.status === status);
+  };
 
   const getPatentsByType = (type: PatentType) => {
-    return patents.value.filter(p => p.type === type)
-  }
-
-  const getPatentsByCategory = (categoryId: number) => {
-    return patents.value.filter(p => p.categoryId === categoryId)
-  }
+    if (!patents.value) return [];
+    return patents.value.filter((p) => p.type === type);
+  };
 
   const getExpiringPatents = (days: number = 30) => {
-    const now = new Date()
-    const targetDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
-    
-    return patents.value.filter(patent => {
-      if (!patent.expirationDate) return false
-      const expirationDate = new Date(patent.expirationDate)
-      return expirationDate <= targetDate && expirationDate > now
-    })
-  }
+    if (!patents.value) return [];
+    const now = new Date();
+    const targetDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+    return patents.value.filter((patent) => {
+      if (!patent.expirationDate) return false;
+      const expirationDate = new Date(patent.expirationDate);
+      return expirationDate <= targetDate && expirationDate > now;
+    });
+  };
 
   const getMaintenanceDuePatents = (days: number = 180) => {
-    const now = new Date()
-    const targetDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
-    
-    return patents.value.filter(patent => {
-      return patent.fees.some(fee => {
-        const dueDate = new Date(fee.dueDate)
-        return dueDate <= targetDate && dueDate > now && fee.type === 'maintenance'
-      })
-    })
-  }
+    if (!patents.value) return [];
+    const now = new Date();
+    const targetDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+    return patents.value.filter((patent) => {
+      if (!patent.fees || !Array.isArray(patent.fees)) return false;
+      return patent.fees.some((fee) => {
+        const dueDate = new Date(fee.dueDate);
+        return (
+          dueDate <= targetDate && dueDate > now && fee.type === "maintenance"
+        );
+      });
+    });
+  };
 
   // 专利申请相关方法
-  const submitApplication = async (applicationData: Omit<PatentApplication, 'id' | 'patentId' | 'status' | 'reviewHistory'>) => {
-    const userStore = useUserStore()
-    const activityStore = useActivityStore()
-    const notificationStore = useNotificationStore()
-    
+  const submitApplication = async (
+    applicationData: Omit<
+      PatentApplication,
+      "id" | "patentId" | "status" | "reviewHistory"
+    >
+  ) => {
+    const userStore = useUserStore();
+    const activityStore = useActivityStore();
+    const notificationStore = useNotificationStore();
+
     try {
       // 生成申请ID
-      const applicationId = applications.value.length > 0 
-        ? Math.max(...applications.value.map(app => app.id)) + 1 
-        : 1
-      
+      if (!applications.value) {
+        throw new Error("专利申请列表未初始化");
+      }
+
+      const applicationId =
+        applications.value.length > 0
+          ? Math.max(...applications.value.map((app) => app.id)) + 1
+          : 1;
+
       // 创建专利申请
       const newApplication: PatentApplication = {
         ...applicationData,
         id: applicationId,
         patentId: 0, // 暂时为0，审核通过后会创建真正的专利
-        status: 'pending',
-        reviewHistory: [{
-          id: 1,
-          reviewer: userStore.currentUser?.realName || '申请人',
-          action: '提交专利申请',
-          time: new Date().toLocaleString(),
-        }]
-      }
-      
+        status: "pending",
+        reviewHistory: [
+          {
+            id: 1,
+            reviewer: userStore.currentUser?.realName || "申请人",
+            action: "提交专利申请",
+            time: new Date().toLocaleString(),
+          },
+        ],
+      };
+
       // 添加到申请列表
-      applications.value.push(newApplication)
-      
-      // 保存到localStorage
-      localStorage.setItem('patentApplications', JSON.stringify(applications.value))
-      
+      if (applications.value) {
+        applications.value.push(newApplication);
+      }
+
       // 记录活动
       activityStore.addActivity({
-        type: 'patent_application',
-        title: '专利申请提交',
+        type: "patent_application",
+        title: "专利申请提交",
         description: `提交专利申请：${applicationData.title}`,
         userId: userStore.currentUser?.id || 0,
-        userName: userStore.currentUser?.realName || '申请人',
+        userName: userStore.currentUser?.realName || "申请人",
         targetId: applicationId,
         targetName: applicationData.title,
-        status: 'pending',
-        statusText: '待审核'
-      })
-      
+        timestamp: new Date().toISOString(),
+        status: "pending",
+        statusText: "待审核",
+      });
+
       // 发送通知
       notificationStore.createPatentNotification(
         applicationData.title,
-        'created',
+        "created",
         userStore.currentUser?.id || 0
-      )
-      
-      return newApplication
+      );
+
+      return newApplication;
     } catch (error) {
-      console.error('提交专利申请失败:', error)
-      throw error
+      console.error("提交专利申请失败:", error);
+      throw error;
     }
-  }
+  };
 
   // 获取所有专利申请
   const getApplications = () => {
-    return applications.value
-  }
+    return applications.value || [];
+  };
 
   // 获取待审核的专利申请
   const getPendingApplications = () => {
-    return applications.value.filter(app => app.status === 'pending')
-  }
+    if (!applications.value) return [];
+    return applications.value.filter((app) => app.status === "pending");
+  };
 
   // 审核专利申请
-  const reviewApplication = async (applicationId: number, result: 'approved' | 'rejected', comment?: string) => {
-    const userStore = useUserStore()
-    const activityStore = useActivityStore()
-    
+  const reviewApplication = async (
+    applicationId: number,
+    result: "approved" | "rejected",
+    comment?: string
+  ) => {
+    const userStore = useUserStore();
+    const activityStore = useActivityStore();
+
     try {
-      const applicationIndex = applications.value.findIndex(app => app.id === applicationId)
-      if (applicationIndex === -1) {
-        throw new Error('专利申请不存在')
+      if (!applications.value) {
+        throw new Error("专利申请列表未初始化");
       }
-      
-      const application = applications.value[applicationIndex]
-      const reviewer = userStore.currentUser?.realName || '审核员'
-      
+
+      const applicationIndex = applications.value.findIndex(
+        (app) => app.id === applicationId
+      );
+      if (applicationIndex === -1) {
+        throw new Error("专利申请不存在");
+      }
+
+      const application = applications.value[applicationIndex];
+      const reviewer = userStore.currentUser?.realName || "审核员";
+
       // 更新申请状态
-      application.status = result
+      application.status = result;
+      if (!application.reviewHistory) {
+        application.reviewHistory = [];
+      }
       application.reviewHistory.push({
         id: application.reviewHistory.length + 1,
         reviewer,
-        action: result === 'approved' ? '审核通过' : '审核拒绝',
+        action: result === "approved" ? "审核通过" : "审核拒绝",
         comment,
         time: new Date().toLocaleString(),
-      })
-      
+      });
+
       // 如果审核通过，创建真正的专利
-      if (result === 'approved') {
-        const patentId = patents.value.length > 0 
-          ? Math.max(...patents.value.map(p => p.id)) + 1 
-          : 1
-        
+      if (result === "approved") {
+        const patentId =
+          patents.value && patents.value.length > 0
+            ? Math.max(...patents.value.map((p) => p.id)) + 1
+            : 1;
+
         const newPatent: Patent = {
           id: patentId,
           title: application.title,
           description: application.description,
           patentNumber: application.patentNumber,
-          applicationNumber: application.patentNumber, // 使用专利号作为申请号
           applicationDate: application.submitDate,
           type: application.type,
-          status: 'approved' as PatentStatus,
+          status: "approved" as PatentStatus,
           categoryId: application.categoryId,
           applicants: application.applicants,
           inventors: application.inventors,
           technicalField: application.technicalField,
           keywords: application.keywords,
           abstract: application.description,
-          claims: [],
+          claims: "",
           documents: [],
           fees: [],
-          timeline: [],
-          legalStatus: 'approved',
+          deadlines: [],
+          userId: userStore.currentUser?.id || 1,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          createdBy: userStore.currentUser?.id || 1,
-          updatedBy: userStore.currentUser?.id || 1,
-        }
-        
+        };
+
         // 添加到专利列表
-        patents.value.push(newPatent)
-        localStorage.setItem('patents', JSON.stringify(patents.value))
-        
+        if (patents.value) {
+          patents.value.push(newPatent);
+        }
+
         // 更新申请的patentId
-        application.patentId = patentId
+        application.patentId = patentId;
       }
-      
-      // 保存更新后的申请列表
-      localStorage.setItem('patentApplications', JSON.stringify(applications.value))
-      
+
       // 记录活动
       activityStore.addActivity({
-        type: 'patent_review',
-        title: `专利申请${result === 'approved' ? '通过' : '拒绝'}`,
-        description: `${result === 'approved' ? '通过' : '拒绝'}专利申请：${application.title}`,
+        type: "patent_review",
+        title: `专利申请${result === "approved" ? "通过" : "拒绝"}`,
+        description: `${result === "approved" ? "通过" : "拒绝"}专利申请：${
+          application.title
+        }`,
         userId: userStore.currentUser?.id || 0,
-        userName: userStore.currentUser?.realName || '审核员',
+        userName: userStore.currentUser?.realName || "审核员",
         targetId: applicationId,
         targetName: application.title,
-        status: result === 'approved' ? 'success' : 'warning',
-        statusText: result === 'approved' ? '已通过' : '已拒绝'
-      })
-      
-      return application
+        timestamp: new Date().toISOString(),
+        status: result === "approved" ? "success" : "warning",
+        statusText: result === "approved" ? "已通过" : "已拒绝",
+      });
+
+      return application;
     } catch (error) {
-      console.error('审核专利申请失败:', error)
-      throw error
+      console.error("审核专利申请失败:", error);
+      throw error;
     }
-  }
+  };
 
   // 加载专利申请数据
-  const loadApplications = () => {
+  const loadApplications = async () => {
     try {
-      const stored = localStorage.getItem('patentApplications')
-      if (stored) {
-        applications.value = JSON.parse(stored)
-      }
+      // 这里应该调用专利申请的API
+      // 暂时设置为空数组，等待API实现
+      applications.value = [];
     } catch (error) {
-      console.error('加载专利申请数据失败:', error)
+      console.error("加载专利申请数据失败:", error);
+      applications.value = [];
     }
-  }
+  };
+
+  // 专利分析相关方法
+  const analyzePatentTechnology = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentAnalysisAPI.analyzeTechnology(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? {
+              ...patent,
+              analysis: {
+                ...(patent as any).analysis,
+                technology: result.data,
+              },
+            }
+          : patent
+      );
+      return result;
+    } catch (error) {
+      console.error("专利技术分析失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const analyzePatentCompetition = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentAnalysisAPI.analyzeCompetition(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? {
+              ...patent,
+              analysis: {
+                ...(patent as any).analysis,
+                competition: result.data,
+              },
+            }
+          : patent
+      );
+      return result;
+    } catch (error) {
+      console.error("专利竞争分析失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const evaluatePatentValue = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentAnalysisAPI.evaluateValue(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? {
+              ...patent,
+              analysis: { ...(patent as any).analysis, value: result.data },
+            }
+          : patent
+      );
+      return result;
+    } catch (error) {
+      console.error("专利价值评估失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const evaluatePatentRisk = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentAnalysisAPI.evaluateRisk(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? {
+              ...patent,
+              analysis: { ...(patent as any).analysis, risk: result.data },
+            }
+          : patent
+      );
+      return result;
+    } catch (error) {
+      console.error("专利风险评估失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利族管理方法
+  const getPatentFamily = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentFamilyAPI.getPatentFamily(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId ? { ...patent, family: result.data } : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("获取专利族失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createPatentFamily = async (data: {
+    name: string;
+    description?: string;
+    patentIds: number[];
+  }) => {
+    try {
+      loading.value = true;
+      const result = await patentFamilyAPI.createPatentFamily(data);
+      return result.data;
+    } catch (error) {
+      console.error("创建专利族失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利引用关系方法
+  const getPatentCitations = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentCitationAPI.getCitations(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? {
+              ...patent,
+              citations: {
+                ...(patent as any).citations,
+                forwardCitations: result.data,
+              },
+            }
+          : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("获取专利引用失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const getPatentCitedBy = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentCitationAPI.getCitedBy(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? {
+              ...patent,
+              citations: {
+                ...(patent as any).citations,
+                backwardCitations: result.data,
+              },
+            }
+          : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("获取被引用专利失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const getCitationNetwork = async (patentId: number, depth: number = 2) => {
+    try {
+      loading.value = true;
+      const result = await patentCitationAPI.getCitationNetwork(
+        patentId,
+        depth
+      );
+      return result.data;
+    } catch (error) {
+      console.error("获取引用网络失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利评估方法
+  const getPatentEvaluations = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentEvaluationAPI.getEvaluations(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? { ...patent, evaluations: result.data }
+          : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("获取专利评估失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createPatentEvaluation = async (
+    patentId: number,
+    data: {
+      evaluatorId: number;
+      score: number;
+      criteria: string[];
+      comments: string;
+      recommendations: string[];
+    }
+  ) => {
+    try {
+      loading.value = true;
+      const result = await patentEvaluationAPI.createEvaluation(patentId, data);
+      // 更新本地专利数据
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? {
+              ...patent,
+              evaluations: [
+                ...((patent as any).evaluations || []),
+                result.data,
+              ],
+            }
+          : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("创建专利评估失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利监控方法
+  const getPatentMonitoring = async (userId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentMonitoringAPI.getMonitoringList(userId);
+      return result.data;
+    } catch (error) {
+      console.error("获取专利监控失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const addPatentToMonitoring = async (patentId: number, userId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentMonitoringAPI.addToMonitoring(
+        patentId,
+        userId
+      );
+      return result.data;
+    } catch (error) {
+      console.error("添加专利监控失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const removePatentFromMonitoring = async (
+    patentId: number,
+    userId: number
+  ) => {
+    try {
+      loading.value = true;
+      const result = await patentMonitoringAPI.removeFromMonitoring(
+        patentId,
+        userId
+      );
+      return result.data;
+    } catch (error) {
+      console.error("移除专利监控失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利交易方法
+  const getPatentTransactions = async () => {
+    try {
+      loading.value = true;
+      const result = await patentTransactionAPI.getTransactions(1); // 使用默认专利ID
+      return result.data;
+    } catch (error) {
+      console.error("获取专利交易失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createPatentTransaction = async (data: {
+    patentId: number;
+    type: "sale" | "license" | "assignment" | "mortgage";
+    buyerId: number;
+    sellerId: number;
+    amount: number;
+    currency: string;
+    terms: any;
+  }) => {
+    try {
+      loading.value = true;
+      const result = await patentTransactionAPI.createTransaction(
+        data.patentId,
+        {
+          transactionType: data.type,
+          amount: data.amount,
+          currency: data.currency,
+          buyer: data.buyerId.toString(),
+          seller: data.sellerId.toString(),
+          terms: data.terms,
+        }
+      );
+      return result.data;
+    } catch (error) {
+      console.error("创建专利交易失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利诉讼方法
+  const getPatentLitigations = async () => {
+    try {
+      loading.value = true;
+      const result = await patentLitigationAPI.getLitigations(1);
+      return result.data;
+    } catch (error) {
+      console.error("获取专利诉讼失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createPatentLitigation = async (data: {
+    patentId: number;
+    caseNumber: string;
+    court: string;
+    plaintiff: string;
+    defendant: string;
+    filingDate: string;
+    status: string;
+    description: string;
+  }) => {
+    try {
+      loading.value = true;
+      const result = await patentLitigationAPI.createLitigation(data.patentId, {
+        caseNumber: data.caseNumber,
+        court: data.court,
+        plaintiff: data.plaintiff,
+        defendant: data.defendant,
+        caseType: data.status,
+        description: data.description,
+      });
+      return result.data;
+    } catch (error) {
+      console.error("创建专利诉讼失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利许可方法
+  const getPatentLicenses = async () => {
+    try {
+      loading.value = true;
+      const result = await patentLicenseAPI.getLicenses(1);
+      return result.data;
+    } catch (error) {
+      console.error("获取专利许可失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createPatentLicense = async (data: {
+    patentId: number;
+    licenseeId: number;
+    licensorId: number;
+    type: "exclusive" | "non-exclusive" | "sublicense";
+    territory: string[];
+    duration: string;
+    royalty: number;
+    terms: any;
+  }) => {
+    try {
+      loading.value = true;
+      const result = await patentLicenseAPI.createLicense(data.patentId, {
+        licensee: data.licenseeId.toString(),
+        licenseType: data.type,
+        territory: data.territory.join(", "),
+        duration: data.duration,
+        royalty: data.royalty.toString(),
+        terms: data.terms,
+      });
+      return result.data;
+    } catch (error) {
+      console.error("创建专利许可失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 高级检索方法
+  const advancedSearch = async (params: {
+    keywords: string[];
+    status: string[];
+    type: string[];
+    categoryId: number[];
+    dateRange: { start: string; end: string };
+    applicants: string[];
+    inventors: string[];
+    page: number;
+    limit: number;
+  }) => {
+    try {
+      loading.value = true;
+      const result = await patentSearchAPI.advancedSearch(params);
+      patents.value = result.data.patents;
+      total.value = result.data.total;
+      // currentPage.value = result.data.page; // 注释掉未定义的变量
+      return result.data;
+    } catch (error) {
+      console.error("高级检索失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const findSimilarPatents = async (patentId: number, limit: number = 10) => {
+    try {
+      loading.value = true;
+      const result = await patentSearchAPI.findSimilarPatents(patentId, limit);
+      return result.data;
+    } catch (error) {
+      console.error("查找相似专利失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 增强统计方法
+  const getPatentTrends = async (period: string, groupBy: string) => {
+    try {
+      loading.value = true;
+      const result = await enhancedStatsAPI.getPatentTrends(period, groupBy);
+      return result.data;
+    } catch (error) {
+      console.error("获取专利趋势失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const getTechnologyDistribution = async (category?: string) => {
+    try {
+      loading.value = true;
+      const result = await enhancedStatsAPI.getTechnologyDistribution(category);
+      return result.data;
+    } catch (error) {
+      console.error("获取技术分布失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const getApplicantRanking = async (limit: number = 20) => {
+    try {
+      loading.value = true;
+      const result = await enhancedStatsAPI.getApplicantRanking(limit);
+      return result.data;
+    } catch (error) {
+      console.error("获取申请人排名失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利预警方法
+  const getPatentAlerts = async (params?: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    severity?: string;
+    status?: string;
+  }) => {
+    try {
+      loading.value = true;
+      const result = await patentAlertAPI.getAlerts(params);
+      return result.data;
+    } catch (error) {
+      console.error("获取专利预警失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createAlertRule = async (data: {
+    name: string;
+    type: string;
+    conditions: any;
+    actions: any[];
+    enabled: boolean;
+  }) => {
+    try {
+      loading.value = true;
+      const result = await patentAlertAPI.createAlertRule(data);
+      return result.data;
+    } catch (error) {
+      console.error("创建预警规则失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利质量评估方法
+  const getPatentQualityAssessment = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentQualityAPI.getQualityAssessment(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? { ...patent, qualityAssessment: result.data }
+          : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("获取专利质量评估失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const performQualityAssessment = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await patentQualityAPI.performQualityAssessment(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? { ...patent, qualityAssessment: result.data }
+          : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("执行质量评估失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利维护增强方法
+  const getPatentMaintenancePlan = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const result = await enhancedMaintenanceAPI.getMaintenancePlan(patentId);
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? { ...patent, maintenancePlan: result.data }
+          : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("获取维护计划失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createMaintenancePlan = async (
+    patentId: number,
+    data: {
+      schedule: any[];
+      reminders: any[];
+      autoRenewal: boolean;
+    }
+  ) => {
+    try {
+      loading.value = true;
+      const result = await enhancedMaintenanceAPI.createMaintenancePlan(
+        patentId,
+        data
+      );
+      patents.value = patents.value.map((patent) =>
+        patent.id === patentId
+          ? { ...patent, maintenancePlan: result.data }
+          : patent
+      );
+      return result.data;
+    } catch (error) {
+      console.error("创建维护计划失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 批量操作增强方法
+  const bulkAnalyzePatents = async (
+    patentIds: number[],
+    analysisType: string
+  ) => {
+    try {
+      loading.value = true;
+      const promises = patentIds.map((id) => {
+        switch (analysisType) {
+          case "technology":
+            return analyzePatentTechnology(id);
+          case "competition":
+            return analyzePatentCompetition(id);
+          case "value":
+            return evaluatePatentValue(id);
+          case "risk":
+            return evaluatePatentRisk(id);
+          default:
+            return Promise.resolve();
+        }
+      });
+
+      const results = await Promise.all(promises);
+      return results;
+    } catch (error) {
+      console.error("批量分析专利失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const bulkQualityAssessment = async (patentIds: number[]) => {
+    try {
+      loading.value = true;
+      const promises = patentIds.map((id) => performQualityAssessment(id));
+      const results = await Promise.all(promises);
+      return results;
+    } catch (error) {
+      console.error("批量质量评估失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 数据导出增强方法
+  const exportPatentAnalysis = async (
+    patentIds: number[],
+    format: string = "excel"
+  ) => {
+    try {
+      loading.value = true;
+      // 这里可以调用后端导出API或在前端生成报告
+      const filteredPatents = patents.value.filter((p) =>
+        patentIds.includes(p.id)
+      );
+      const analysisData = filteredPatents.map((patent) => ({
+        id: patent.id,
+        title: patent.title,
+        patentNumber: patent.patentNumber,
+        status: patent.status,
+        analysis: (patent as any).analysis,
+        qualityAssessment: (patent as any).qualityAssessment,
+        evaluations: (patent as any).evaluations,
+        family: (patent as any).family,
+        citations: (patent as any).citations,
+      }));
+
+      // 根据格式生成不同的导出文件
+      if (format === "excel") {
+        // 生成Excel文件
+        return generateExcelReport(analysisData);
+      } else if (format === "pdf") {
+        // 生成PDF报告
+        return generatePDFReport(analysisData);
+      }
+
+      return analysisData;
+    } catch (error) {
+      console.error("导出专利分析失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 辅助方法
+  const generateExcelReport = (data: any[]) => {
+    // 这里可以实现Excel生成逻辑
+    console.log("生成Excel报告:", data);
+    return data;
+  };
+
+  const generatePDFReport = (data: any[]) => {
+    // 这里可以实现PDF生成逻辑
+    console.log("生成PDF报告:", data);
+    return data;
+  };
+
+  // 获取专利完整信息
+  const getPatentFullInfo = async (patentId: number) => {
+    try {
+      loading.value = true;
+      const promises = [
+        getPatentById(patentId),
+        getPatentFamily(patentId),
+        getPatentCitations(patentId),
+        getPatentCitedBy(patentId),
+        getPatentEvaluations(patentId),
+        getPatentQualityAssessment(patentId),
+        getPatentMaintenancePlan(patentId),
+      ];
+
+      const results = await Promise.all(promises);
+      return results;
+    } catch (error) {
+      console.error("获取专利完整信息失败:", error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 专利文档管理方法
+  const getPatentDocuments = async (patentId: number) => {
+    try {
+      const response = await patentAPI.getPatentDocuments(patentId);
+      return response;
+    } catch (error) {
+      console.error("获取专利文档失败:", error);
+      throw error;
+    }
+  };
+
+  const createPatentDocument = async (
+    patentId: number,
+    data: {
+      name: string;
+      type: string;
+      fileUrl: string;
+      fileSize?: number;
+    }
+  ) => {
+    try {
+      const response = await patentAPI.createPatentDocument(patentId, data);
+      return response;
+    } catch (error) {
+      console.error("创建专利文档失败:", error);
+      throw error;
+    }
+  };
+
+  const deletePatentDocument = async (patentId: number, documentId: number) => {
+    try {
+      const response = await patentAPI.deletePatentDocument(
+        patentId,
+        documentId
+      );
+      return response;
+    } catch (error) {
+      console.error("删除专利文档失败:", error);
+      throw error;
+    }
+  };
 
   // 初始化时加载数据
-  fetchPatents()
-  fetchCategories()
-  loadApplications()
+  fetchPatents();
+  loadApplications();
 
   return {
     // 状态
     patents,
-    categories,
+
     loading,
     currentPatent,
     searchKeyword,
     filterStatus,
     filterType,
     filterCategory,
-    
+    total, // 新增：暴露total
+
     // 计算属性
     totalPatents,
     patentsByStatus,
-    patentsByCategory,
     statistics,
     filteredPatents,
-    
-    // 方法
+
+    // 基础方法
     fetchPatents,
     addPatent,
     updatePatent,
     deletePatent,
-    fetchCategories,
+
     searchPatents,
     filterByStatus,
     filterByType,
-    filterByCategory,
+
     clearFilters,
     getPatentById,
     getPatentsByStatus,
     getPatentsByType,
-    getPatentsByCategory,
+
     getExpiringPatents,
     getMaintenanceDuePatents,
     validatePatent,
-    
+
     // 专利申请相关方法
     submitApplication,
     getApplications,
     getPendingApplications,
     reviewApplication,
     loadApplications,
-  }
-}) 
+
+    // 专利分析相关方法
+    analyzePatentTechnology,
+    analyzePatentCompetition,
+    evaluatePatentValue,
+    evaluatePatentRisk,
+
+    // 专利族管理方法
+    getPatentFamily,
+    createPatentFamily,
+
+    // 专利引用关系方法
+    getPatentCitations,
+    getPatentCitedBy,
+    getCitationNetwork,
+
+    // 专利评估方法
+    getPatentEvaluations,
+    createPatentEvaluation,
+
+    // 专利监控方法
+    getPatentMonitoring,
+    addPatentToMonitoring,
+    removePatentFromMonitoring,
+
+    // 专利交易方法
+    getPatentTransactions,
+    createPatentTransaction,
+
+    // 专利诉讼方法
+    getPatentLitigations,
+    createPatentLitigation,
+
+    // 专利许可方法
+    getPatentLicenses,
+    createPatentLicense,
+
+    // 高级检索方法
+    advancedSearch,
+    findSimilarPatents,
+
+    // 增强统计方法
+    getPatentTrends,
+    getTechnologyDistribution,
+    getApplicantRanking,
+
+    // 专利预警方法
+    getPatentAlerts,
+    createAlertRule,
+
+    // 专利质量评估方法
+    getPatentQualityAssessment,
+    performQualityAssessment,
+
+    // 专利维护增强方法
+    getPatentMaintenancePlan,
+    createMaintenancePlan,
+
+    // 批量操作增强方法
+    bulkAnalyzePatents,
+    bulkQualityAssessment,
+
+    // 数据导出增强方法
+    exportPatentAnalysis,
+
+    // 获取专利完整信息
+    getPatentFullInfo,
+
+    // 专利文档管理方法
+    getPatentDocuments,
+    createPatentDocument,
+    deletePatentDocument,
+  };
+});

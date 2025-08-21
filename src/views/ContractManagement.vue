@@ -304,13 +304,25 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="startDate" label="开始日期" width="120" />
-            <el-table-column prop="endDate" label="结束日期" width="120" />
+            <el-table-column prop="startDate" label="开始日期" width="120">
+              <template #default="{ row }">
+                {{ formatDate(row.startDate) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="endDate" label="结束日期" width="120">
+              <template #default="{ row }">
+                {{ formatDate(row.endDate) }}
+              </template>
+            </el-table-column>
             <el-table-column
               prop="nextPaymentDate"
               label="下次付款日期"
               width="120"
-            />
+            >
+              <template #default="{ row }">
+                {{ formatDate(row.nextPaymentDate) }}
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <el-button size="small" @click="editFeeAgreement(row)"
@@ -345,11 +357,11 @@
             style="width: 100%"
             v-loading="loading"
           >
-            <el-table-column
-              prop="evaluationDate"
-              label="评估日期"
-              width="120"
-            />
+            <el-table-column prop="evaluationDate" label="评估日期" width="120">
+              <template #default="{ row }">
+                {{ formatDate(row.evaluationDate) }}
+              </template>
+            </el-table-column>
             <el-table-column label="总体评分" width="120">
               <template #default="{ row }">
                 <el-rate v-model="row.overallScore" disabled show-score />
@@ -812,9 +824,36 @@ const handleEvaluationSubmit = (evaluationData: any) => {
   editingEvaluation.value = null;
 };
 
-// 生命周期
-onMounted(() => {
-  contractStore.loadFromStorage();
+// 辅助函数
+const formatDate = (dateString: string | Date) => {
+  if (!dateString) return "未知";
+  try {
+    const date =
+      typeof dateString === "string" ? new Date(dateString) : dateString;
+
+    // 检查日期是否有效
+    if (isNaN(date.getTime())) {
+      return "无效日期";
+    }
+
+    return date.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  } catch (error) {
+    return String(dateString);
+  }
+};
+
+// 组件挂载时初始化数据
+onMounted(async () => {
+  try {
+    await contractStore.initialize();
+  } catch (error) {
+    console.error("初始化合同管理数据失败:", error);
+    ElMessage.error("初始化数据失败，请刷新页面重试");
+  }
 });
 </script>
 

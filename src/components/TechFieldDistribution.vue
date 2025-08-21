@@ -77,15 +77,20 @@
 
       <!-- 表格视图 -->
       <div v-if="viewMode === 'table'" class="table-view">
-        <el-table :data="distributionData.fields" stripe>
-          <el-table-column prop="field" label="技术领域" width="150">
+        <el-table
+          :data="distributionData.fields"
+          stripe
+          :row-class-name="getRowClassName"
+          :cell-class-name="getCellClassName"
+        >
+          <el-table-column prop="field" label="技术领域" width="180">
             <template #default="{ row }">
               <div class="field-name">
                 <span
                   class="field-dot"
                   :style="{ backgroundColor: getFieldColor(row.field) }"
                 ></span>
-                {{ row.field }}
+                <span class="field-text">{{ row.field }}</span>
               </div>
             </template>
           </el-table-column>
@@ -102,23 +107,27 @@
             </template>
           </el-table-column>
 
-          <el-table-column prop="trend" label="趋势" width="100">
+          <el-table-column prop="trend" label="趋势" width="120">
             <template #default="{ row }">
-              <el-icon
-                :class="[
-                  'trend-icon',
-                  row.trend === 'up'
-                    ? 'trend-up'
-                    : row.trend === 'down'
-                    ? 'trend-down'
-                    : 'trend-stable',
-                ]"
-              >
-                <component :is="getTrendIcon(row.trend)" />
-              </el-icon>
-              <span :class="getTrendClass(row.trend)">
-                {{ getTrendText(row.trend) }}
-              </span>
+              <div class="trend-display">
+                <el-icon
+                  :class="[
+                    'trend-icon',
+                    row.trend === 'up'
+                      ? 'trend-up'
+                      : row.trend === 'down'
+                      ? 'trend-down'
+                      : 'trend-stable',
+                  ]"
+                >
+                  <ArrowUp v-if="row.trend === 'up'" />
+                  <ArrowDown v-else-if="row.trend === 'down'" />
+                  <Minus v-else />
+                </el-icon>
+                <span :class="getTrendClass(row.trend)">
+                  {{ getTrendText(row.trend) }}
+                </span>
+              </div>
             </template>
           </el-table-column>
 
@@ -150,11 +159,13 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" @click="viewFieldDetail(row.field)">
-                详情
-              </el-button>
+              <div class="action-buttons">
+                <el-button size="small" @click="viewFieldDetail(row.field)">
+                  详情
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -209,7 +220,9 @@ import {
   Refresh,
   Operation,
   List,
-
+  ArrowUp,
+  ArrowDown,
+  Minus,
   Trophy,
   Lightning,
 } from "@element-plus/icons-vue";
@@ -257,17 +270,6 @@ const getFieldColor = (field: string) => {
   return fieldColors[index % fieldColors.length];
 };
 
-const getTrendIcon = (trend: string) => {
-  switch (trend) {
-    case "up":
-      return "ArrowUp";
-    case "down":
-      return "ArrowDown";
-    default:
-      return "Minus";
-  }
-};
-
 const getTrendClass = (trend: string) => {
   switch (trend) {
     case "up":
@@ -294,6 +296,23 @@ const getSuccessRateColor = (rate: number) => {
   if (rate >= 90) return "#67C23A";
   if (rate >= 80) return "#E6A23C";
   return "#F56C6C";
+};
+
+const getRowClassName = ({
+  row: _row,
+  rowIndex: _rowIndex,
+}: {
+  row: any;
+  rowIndex: number;
+}) => {
+  return "table-row-spaced";
+};
+
+const getCellClassName = ({ column }: { column: any }) => {
+  if (column.property === "trend") {
+    return "trend-cell";
+  }
+  return "";
 };
 
 const initCharts = () => {
@@ -655,21 +674,81 @@ watch(viewMode, onViewModeChange);
   margin: 20px 0;
 }
 
+.table-row-spaced {
+  height: 60px;
+}
+
+.trend-cell {
+  padding: 8px 12px !important;
+}
+
+.table-view .el-table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-view .el-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #2c3e50;
+  padding: 16px 12px;
+}
+
+.table-view .el-table td {
+  padding: 12px;
+  vertical-align: middle;
+}
+
 .field-name {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 4px 0;
 }
 
 .field-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
+.field-text {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
 .trend-icon {
   margin-right: 4px;
+}
+
+.trend-up {
+  color: #67c23a;
+}
+
+.trend-down {
+  color: #f56c6c;
+}
+
+.trend-stable {
+  color: #909399;
+}
+
+.trend-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.trend-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .trend-up {
@@ -764,5 +843,21 @@ watch(viewMode, onViewModeChange);
     gap: 12px;
     align-items: flex-start;
   }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.action-buttons .el-button + .el-button {
+  margin-left: 0;
 }
 </style>

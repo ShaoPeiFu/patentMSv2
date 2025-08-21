@@ -174,18 +174,6 @@ const quickActions = ref([
     action: () => router.push("/dashboard/users"),
   },
   {
-    icon: "DataAnalysis",
-    title: "统计报表",
-    description: "查看详细的数据分析",
-    action: () => router.push("/dashboard/reports"),
-  },
-  {
-    icon: "Folder",
-    title: "分类管理",
-    description: "管理专利分类体系",
-    action: () => router.push("/dashboard/categories"),
-  },
-  {
     icon: "Setting",
     title: "系统设置",
     description: "配置系统参数",
@@ -279,14 +267,19 @@ const testAddActivity = () => {
     targetName: "测试专利",
     status: "success",
     statusText: "测试完成",
+    timestamp: new Date().toISOString(),
   });
   ElMessage.success("测试活动添加成功");
 };
 
 // 刷新活动
-const refreshActivities = () => {
-  activityStore.loadActivitiesFromStorage();
-  ElMessage.success("活动数据已刷新");
+const refreshActivities = async () => {
+  try {
+    await activityStore.fetchActivities();
+    ElMessage.success("活动数据已刷新");
+  } catch (error) {
+    ElMessage.error("刷新活动数据失败");
+  }
 };
 
 // 组件挂载时初始化动画和数据
@@ -295,7 +288,9 @@ onMounted(async () => {
   try {
     const patentStore = usePatentStore();
     await patentStore.fetchPatents();
-    await patentStore.fetchCategories();
+
+    // 加载真实的活动数据
+    await activityStore.fetchActivities();
 
     // 确保活动数据已加载
     console.log("活动数据:", activityStore.activities.length);

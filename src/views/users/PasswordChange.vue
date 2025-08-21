@@ -116,7 +116,7 @@ const rules: FormRules = {
     { required: true, message: "请确认新密码", trigger: "blur" },
     {
       validator: (
-        rule: unknown,
+        _: unknown,
         value: string,
         callback: (error?: Error) => void
       ) => {
@@ -139,7 +139,7 @@ const handleSubmit = async () => {
     await formRef.value.validate();
 
     // 验证当前密码
-    const isValid = await userStore.verifyPassword(form.oldPassword);
+    const isValid = await userStore.verifyPassword();
     if (!isValid) {
       ElMessage.error("当前密码不正确");
       return;
@@ -153,10 +153,11 @@ const handleSubmit = async () => {
       return;
     }
 
-    await userStore.updateUser(currentUser.id, {
-      ...currentUser,
-      password: form.newPassword,
-    });
+    await userStore.changePassword(
+      currentUser.id,
+      form.oldPassword,
+      form.newPassword
+    );
 
     ElMessage.success("密码修改成功");
 

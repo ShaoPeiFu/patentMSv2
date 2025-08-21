@@ -74,22 +74,7 @@
                 <el-option label="发明专利" value="invention" />
                 <el-option label="实用新型" value="utility_model" />
                 <el-option label="外观设计" value="design" />
-                <el-option label="软件专利" value="software" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item label="分类">
-              <el-select
-                v-model="searchForm.categoryId"
-                placeholder="选择分类"
-                clearable
-              >
-                <el-option
-                  v-for="category in categories"
-                  :key="category.id"
-                  :label="category.name"
-                  :value="category.id.toString()"
-                />
+                <el-option label="软件专利" value="invention" />
               </el-select>
             </el-form-item>
 
@@ -118,7 +103,7 @@
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-number">{{ localStatistics.total }}</div>
+              <div class="stat-number">{{ localStatistics?.total || 0 }}</div>
               <div class="stat-label">总专利数</div>
             </div>
           </el-card>
@@ -127,7 +112,7 @@
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-number">
-                {{ localStatistics.byStatus.pending || 0 }}
+                {{ localStatistics?.byStatus?.pending || 0 }}
               </div>
               <div class="stat-label">待审核</div>
             </div>
@@ -136,7 +121,9 @@
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-number">{{ localStatistics.expiringSoon }}</div>
+              <div class="stat-number">
+                {{ localStatistics?.expiringSoon || 0 }}
+              </div>
               <div class="stat-label">即将过期</div>
             </div>
           </el-card>
@@ -145,7 +132,7 @@
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-number">
-                {{ localStatistics.maintenanceDue }}
+                {{ localStatistics?.maintenanceDue || 0 }}
               </div>
               <div class="stat-label">维护费到期</div>
             </div>
@@ -159,7 +146,7 @@
       <el-card>
         <template #header>
           <div class="card-header">
-            <span>专利列表 (共 {{ filteredPatents.length }} 条记录)</span>
+            <span>专利列表 (共 {{ filteredPatents?.length || 0 }} 条记录)</span>
             <div class="header-actions">
               <el-button size="small" @click="handleExport">导出</el-button>
               <el-button size="small" @click="handleRefresh">刷新</el-button>
@@ -197,28 +184,37 @@
             </template>
           </el-table-column>
 
-          <el-table-column
-            prop="applicationDate"
-            label="申请日期"
-            width="120"
-          />
+          <el-table-column prop="applicationDate" label="申请日期" width="120">
+            <template #default="{ row }">
+              {{ formatDate(row.applicationDate) }}
+            </template>
+          </el-table-column>
 
-          <el-table-column prop="expirationDate" label="到期日期" width="120" />
+          <el-table-column prop="expirationDate" label="到期日期" width="120">
+            <template #default="{ row }">
+              {{ row.expirationDate ? formatDate(row.expirationDate) : "-" }}
+            </template>
+          </el-table-column>
 
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" @click="viewPatent(row.id)"
-                >查看</el-button
-              >
-              <el-button size="small" type="primary" @click="editPatent(row.id)"
-                >编辑</el-button
-              >
-              <el-button
-                size="small"
-                type="danger"
-                @click="deletePatent(row.id)"
-                >删除</el-button
-              >
+              <div class="action-buttons">
+                <el-button size="small" @click="viewPatent(row.id)"
+                  >查看</el-button
+                >
+                <el-button
+                  size="small"
+                  type="primary"
+                  @click="editPatent(row.id)"
+                  >编辑</el-button
+                >
+                <el-button
+                  size="small"
+                  type="danger"
+                  @click="deletePatent(row.id)"
+                  >删除</el-button
+                >
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -241,7 +237,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed, onMounted, unref } from "vue";
 import { useRouter } from "vue-router";
 import { usePatentStore } from "@/stores/patent";
 import { useSearchStore } from "@/stores/search";
@@ -254,6 +250,7 @@ import type {
   SearchHistory,
 } from "@/types/search";
 import { debounce } from "@/utils/performance";
+import { formatDate } from "@/utils/dateUtils";
 import SearchSuggestions from "@/components/SearchSuggestions.vue";
 import AdvancedSearch from "@/components/AdvancedSearch.vue";
 
@@ -275,18 +272,32 @@ const currentSearchConditions = ref<SearchCondition[]>([]);
 const currentSearchInfo = ref("");
 
 // 搜索表单
-const searchForm = ref({
+const searchForm = ref<{
+  keyword: string;
+  status: string;
+  type: string;
+}>({
   keyword: "",
   status: "",
   type: "",
-  categoryId: "",
 });
 
 // 本地统计信息（用于显示）
 const localStatistics = reactive<PatentStatistics>({
   total: 0,
-  byStatus: {} as any,
-  byType: {} as any,
+  byStatus: {
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    expired: 0,
+    maintained: 0,
+  } as any,
+  byType: {
+    invention: 0,
+    utility_model: 0,
+    design: 0,
+    software: 0,
+  } as any,
   byCategory: {} as any,
   byYear: {} as any,
   recentApplications: 0,
@@ -294,20 +305,14 @@ const localStatistics = reactive<PatentStatistics>({
   maintenanceDue: 0,
 });
 
-// 计算属性
-const categories = computed(() => patentStore.categories);
 const filteredPatents = computed(() => {
-  let patents = patentStore.patents;
+  const base = unref(patentStore.patents) || [];
 
-  // 如果有高级搜索条件，使用高级搜索
   if (currentSearchConditions.value.length > 0) {
-    patents = searchStore.executeSearch(patents, currentSearchConditions.value);
-  } else {
-    // 否则使用原有的搜索逻辑
-    patents = patentStore.filteredPatents;
+    return searchStore.executeSearch(base, currentSearchConditions.value);
   }
 
-  return patents;
+  return unref(patentStore.filteredPatents) || [];
 });
 
 // 搜索处理函数
@@ -345,12 +350,6 @@ const performSearch = () => {
     console.log("筛选类型:", searchForm.value.type);
   }
 
-  // 应用分类筛选
-  if (searchForm.value.categoryId) {
-    patentStore.filterByCategory(parseInt(searchForm.value.categoryId));
-    console.log("筛选分类:", searchForm.value.categoryId);
-  }
-
   // 更新本地统计信息
   updateLocalStatistics();
 
@@ -360,8 +359,7 @@ const performSearch = () => {
   const hasFilters =
     searchForm.value.keyword ||
     searchForm.value.status ||
-    searchForm.value.type ||
-    searchForm.value.categoryId;
+    searchForm.value.type;
   if (hasFilters) {
     ElMessage.success(`搜索完成，找到 ${filteredPatents.value.length} 条记录`);
   }
@@ -501,15 +499,26 @@ const getOperatorLabel = (operator: string): string => {
 
 // 更新本地统计信息
 const updateLocalStatistics = () => {
-  const stats = patentStore.statistics;
-  localStatistics.total = stats.total;
-  localStatistics.byStatus = stats.byStatus;
-  localStatistics.byType = stats.byType;
-  localStatistics.byCategory = stats.byCategory;
-  localStatistics.byYear = stats.byYear;
-  localStatistics.recentApplications = stats.recentApplications;
-  localStatistics.expiringSoon = stats.expiringSoon;
-  localStatistics.maintenanceDue = stats.maintenanceDue;
+  const stats = unref(patentStore.statistics);
+  if (stats) {
+    localStatistics.total = stats.total || 0;
+    localStatistics.byStatus = stats.byStatus || ({} as any);
+    localStatistics.byType = stats.byType || ({} as any);
+    localStatistics.byCategory = stats.byCategory || ({} as any);
+    localStatistics.byYear = (stats as any).byYear || ({} as any);
+    localStatistics.recentApplications = stats.recentApplications || 0;
+    localStatistics.expiringSoon = stats.expiringSoon || 0;
+    localStatistics.maintenanceDue = stats.maintenanceDue || 0;
+  } else {
+    localStatistics.total = 0;
+    localStatistics.byStatus = {} as any;
+    localStatistics.byType = {} as any;
+    localStatistics.byCategory = {} as any;
+    localStatistics.byYear = {} as any;
+    localStatistics.recentApplications = 0;
+    localStatistics.expiringSoon = 0;
+    localStatistics.maintenanceDue = 0;
+  }
 };
 
 const handleSelectionChange = (selection: PatentTableSelection[]) => {
@@ -563,8 +572,9 @@ const deletePatent = async (id: number) => {
 const fetchPatents = async () => {
   loading.value = true;
   try {
+    // 获取所有状态的专利，不限制状态
     await patentStore.fetchPatents();
-    await patentStore.fetchCategories();
+
     // 更新统计信息
     updateLocalStatistics();
   } catch (error) {
@@ -609,9 +619,8 @@ const getTypeText = (type: string) => {
 // 生命周期
 
 onMounted(() => {
+  // 先获取专利数据，再更新统计信息
   fetchPatents();
-  // 更新搜索字段的分类选项
-  searchStore.updateCategoryOptions(categories.value);
 });
 </script>
 
@@ -721,5 +730,21 @@ onMounted(() => {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.action-buttons .el-button + .el-button {
+  margin-left: 0;
 }
 </style>

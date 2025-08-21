@@ -180,10 +180,8 @@ import NotificationCenter from "./NotificationCenter.vue";
 import {
   House,
   Plus,
-  Folder,
   User,
   DataAnalysis,
-  DataBoard,
   Lock,
   SwitchButton,
   Setting,
@@ -232,26 +230,13 @@ const allMenuItems = [
     exact: true,
     permission: "canAccessReviewCenter",
   },
-  {
-    path: "/dashboard/categories",
-    title: "分类管理",
-    icon: Folder,
-    exact: true,
-    permission: "canManageCategories",
-  },
+
   {
     path: "/dashboard/users",
     title: "用户管理",
     icon: User,
     exact: true,
     permission: "canViewUsers",
-  },
-  {
-    path: "/dashboard/reports",
-    title: "统计报表",
-    icon: DataAnalysis,
-    exact: true,
-    permission: "canViewReports",
   },
 
   {
@@ -261,13 +246,7 @@ const allMenuItems = [
     exact: true,
     permission: "canViewReports",
   },
-  {
-    path: "/dashboard/visualization",
-    title: "可视化中心",
-    icon: DataBoard,
-    exact: true,
-    permission: "canViewReports",
-  },
+
   {
     path: "/dashboard/fees",
     title: "费用管理",

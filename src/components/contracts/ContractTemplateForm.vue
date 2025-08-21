@@ -110,6 +110,23 @@ const form = ref({
   version: "1.0",
 });
 
+// 确保 variables 始终是数组
+const ensureVariablesArray = (data: any) => {
+  console.log("ensureVariablesArray: 输入数据:", data);
+
+  if (data && typeof data === "object") {
+    const result = {
+      ...data,
+      variables: Array.isArray(data.variables) ? [...data.variables] : [],
+    };
+    console.log("ensureVariablesArray: 输出结果:", result);
+    return result;
+  }
+
+  console.log("ensureVariablesArray: 数据无效，返回默认值");
+  return data;
+};
+
 const variablesInput = ref("");
 
 const rules: FormRules = {
@@ -123,13 +140,19 @@ const rules: FormRules = {
 
 // 更新变量列表
 const updateVariables = () => {
-  if (variablesInput.value) {
-    form.value.variables = variablesInput.value
+  console.log("updateVariables: 输入值:", variablesInput.value);
+
+  if (variablesInput.value && variablesInput.value.trim()) {
+    const variables = variablesInput.value
       .split(",")
       .map((v) => v.trim())
       .filter((v) => v.length > 0);
+
+    form.value.variables = variables;
+    console.log("updateVariables: 更新后的变量列表:", variables);
   } else {
     form.value.variables = [];
+    console.log("updateVariables: 清空变量列表");
   }
 };
 
@@ -138,8 +161,25 @@ watch(
   () => props.initialData,
   (newData) => {
     if (newData) {
-      Object.assign(form.value, newData);
-      variablesInput.value = newData.variables.join(", ");
+      console.log("ContractTemplateForm: 接收到初始数据:", newData);
+      console.log(
+        "ContractTemplateForm: variables 字段类型:",
+        typeof newData.variables
+      );
+      console.log("ContractTemplateForm: variables 字段值:", newData.variables);
+
+      // 使用辅助函数确保数据安全
+      const safeData = ensureVariablesArray(newData);
+      console.log("ContractTemplateForm: 安全处理后的数据:", safeData);
+
+      Object.assign(form.value, safeData);
+
+      // 更新变量输入框
+      if (safeData.variables.length > 0) {
+        variablesInput.value = safeData.variables.join(", ");
+      } else {
+        variablesInput.value = "";
+      }
     }
   },
   { immediate: true }

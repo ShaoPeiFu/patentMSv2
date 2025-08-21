@@ -1,6 +1,6 @@
 // 律师事务所类型
-export type LawFirmStatus = 'active' | 'inactive' | 'suspended';
-export type ServiceLevel = 'premium' | 'standard' | 'basic';
+export type LawFirmStatus = "active" | "inactive" | "suspended";
+export type ServiceLevel = "premium" | "standard" | "basic";
 
 export interface LawFirm {
   id: number;
@@ -9,6 +9,7 @@ export interface LawFirm {
   phone: string;
   email: string;
   address: string;
+  website?: string;
   specialties: string[];
   serviceLevel: ServiceLevel;
   status: LawFirmStatus;
@@ -20,8 +21,16 @@ export interface LawFirm {
 }
 
 // 合同模板类型
-export type ContractType = 'patent_application' | 'patent_prosecution' | 'patent_litigation' | 'trademark' | 'copyright' | 'custom';
-export type TemplateStatus = 'draft' | 'active' | 'archived';
+export type ContractType =
+  | "patent_application"
+  | "patent_prosecution"
+  | "patent_litigation"
+  | "trademark"
+  | "copyright"
+  | "custom"
+  | "patent_agency"
+  | "trademark_registration";
+export type TemplateStatus = "draft" | "active" | "archived";
 
 export interface ContractTemplate {
   id: number;
@@ -38,8 +47,8 @@ export interface ContractTemplate {
 }
 
 // 费用协议类型
-export type FeeType = 'hourly' | 'fixed' | 'contingency' | 'hybrid';
-export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
+export type FeeType = "hourly" | "fixed" | "contingency" | "hybrid";
+export type PaymentStatus = "pending" | "paid" | "overdue" | "cancelled";
 
 export interface FeeAgreement {
   id: number;
@@ -61,8 +70,13 @@ export interface FeeAgreement {
 }
 
 // 服务质量评估类型
-export type EvaluationCriteria = 'responsiveness' | 'quality' | 'communication' | 'timeliness' | 'cost_efficiency';
-export type EvaluationStatus = 'pending' | 'completed' | 'overdue';
+export type EvaluationCriteria =
+  | "responsiveness"
+  | "quality"
+  | "communication"
+  | "timeliness"
+  | "cost_efficiency";
+export type EvaluationStatus = "pending" | "completed" | "overdue";
 
 export interface ServiceEvaluation {
   id: number;
@@ -80,8 +94,8 @@ export interface ServiceEvaluation {
 }
 
 // 合同类型
-export type ContractStatus = 'draft' | 'active' | 'completed' | 'terminated';
-export type ContractPriority = 'high' | 'medium' | 'low';
+export type ContractStatus = "draft" | "active" | "completed" | "terminated";
+export type ContractPriority = "high" | "medium" | "low";
 
 export interface Contract {
   id: number;
@@ -114,6 +128,8 @@ export interface ContractQueryCondition {
   startDate?: string;
   endDate?: string;
   keyword?: string;
+  minValue?: number;
+  maxValue?: number;
 }
 
 export interface LawFirmQueryCondition {
@@ -121,6 +137,11 @@ export interface LawFirmQueryCondition {
   serviceLevel?: ServiceLevel;
   specialty?: string;
   keyword?: string;
+  minRating?: number;
+  maxRating?: number;
+  minRevenue?: number;
+  maxRevenue?: number;
+  specialties?: string[];
 }
 
 // 统计数据类型
@@ -130,7 +151,12 @@ export interface ContractStatistics {
   completedContracts: number;
   totalValue: number;
   averageRating: number;
-  topLawFirms: Array<{ id: number; name: string; contractCount: number; revenue: number }>;
+  topLawFirms: Array<{
+    id: number;
+    name: string;
+    contractCount: number;
+    revenue: number;
+  }>;
   contractsByType: Record<ContractType, number>;
   contractsByStatus: Record<ContractStatus, number>;
 }
@@ -146,14 +172,14 @@ export interface LawFirmStatistics {
 
 // 导出选项类型
 export interface ContractExportOptions {
-  format: 'pdf' | 'excel' | 'csv';
+  format: "pdf" | "excel" | "csv";
   includeAttachments: boolean;
   dateRange?: { start: string; end: string };
   filters?: ContractQueryCondition;
 }
 
 export interface LawFirmExportOptions {
-  format: 'pdf' | 'excel' | 'csv';
+  format: "pdf" | "excel" | "csv";
   includeEvaluations: boolean;
   filters?: LawFirmQueryCondition;
-} 
+}

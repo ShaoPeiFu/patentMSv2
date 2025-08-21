@@ -9,7 +9,6 @@ import type {
   ApprovalWorkflow,
   DocumentApprovalProcess,
   ElectronicSignature,
-  DocumentComparison,
   DocumentVersionComparisonResult,
   DocumentTemplate,
   DocumentAccess,
@@ -255,18 +254,6 @@ export const useDocumentStore = defineStore("document", () => {
       differences,
     };
 
-    // 保存对比记录
-    const _comparison: DocumentComparison = {
-      id: Date.now().toString(),
-      documentId,
-      oldVersionId,
-      newVersionId,
-      comparisonType: "metadata",
-      differences,
-      generatedAt: new Date().toISOString(),
-      generatedBy: useUserStore().currentUser?.id || 0,
-    };
-
     logActivity(
       documentId,
       newVersionId,
@@ -278,18 +265,40 @@ export const useDocumentStore = defineStore("document", () => {
   };
 
   // 审批流程管理
-  const createApprovalWorkflow = (
+  const createApprovalWorkflow = async (
     workflow: Omit<ApprovalWorkflow, "id" | "createdAt">
-  ): ApprovalWorkflow => {
-    const newWorkflow: ApprovalWorkflow = {
-      ...workflow,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
+  ): Promise<ApprovalWorkflow> => {
+    try {
+      const { workflowAPI } = await import("@/services/workflowAPI");
+      const response = await workflowAPI.createWorkflow(workflow);
 
-    approvalWorkflows.value.push(newWorkflow);
-    saveToStorage();
-    return newWorkflow;
+      if (response.success && response.workflow) {
+        // 确保新工作流包含所有必要字段
+        const newWorkflow: ApprovalWorkflow = {
+          ...response.workflow,
+          // 确保默认值存在
+          type: response.workflow.type || "sequential",
+          priority: response.workflow.priority || "medium",
+          category: response.workflow.category || "文档",
+          version: response.workflow.version || "1.0",
+          isActive:
+            response.workflow.isActive !== undefined
+              ? response.workflow.isActive
+              : true,
+          tags: response.workflow.tags || [],
+        };
+
+        // 更新本地状态
+        approvalWorkflows.value.unshift(newWorkflow); // 使用unshift确保新工作流显示在列表顶部
+        console.log("✅ 新工作流已添加到本地状态:", newWorkflow);
+        return newWorkflow;
+      } else {
+        throw new Error(response.message || "创建工作流失败");
+      }
+    } catch (error) {
+      console.error("创建工作流失败:", error);
+      throw error;
+    }
   };
 
   const startApprovalProcess = async (
@@ -797,6 +806,7 @@ export const useDocumentStore = defineStore("document", () => {
       userName: currentUser.realName,
       targetId: parseInt(documentVersionId || documentId),
       targetName: description,
+      timestamp: new Date().toISOString(),
       status: "success",
       statusText: "完成",
     });
@@ -929,6 +939,88 @@ export const useDocumentStore = defineStore("document", () => {
       };
 
       approvalWorkflows.value.push(defaultWorkflow);
+      saveToStorage();
+    }
+  };
+
+  // 初始化示例审批流程和超时数据
+  const initializeSampleData = () => {
+    // 如果没有审批流程，创建一个示例流程
+    if (approvalProcesses.value.length === 0) {
+      const sampleProcess: DocumentApprovalProcess = {
+        id: "sample-process-1",
+        documentVersionId: "sample-doc-1",
+        workflowId: "default-workflow",
+        currentStep: 1,
+        status: "pending",
+        startedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3天前
+        approvals: [],
+        rejections: [],
+        comments: [],
+        priority: "medium",
+        estimatedCompletionTime: new Date(
+          Date.now() - 1 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 1天前
+        delegations: [],
+        timeouts: [],
+        escalations: [],
+        lastActivityAt: new Date(
+          Date.now() - 2 * 24 * 60 * 60 * 1000
+        ).toISOString(),
+      };
+
+      approvalProcesses.value.push(sampleProcess);
+      saveToStorage();
+    }
+
+    // 如果没有超时记录，创建一些示例超时记录
+    if (approvalTimeouts.value.length === 0) {
+      const sampleTimeouts: ApprovalTimeout[] = [
+        {
+          id: "timeout-1",
+          processId: "sample-process-1",
+          stepId: "step-1",
+          expectedCompletionTime: new Date(
+            Date.now() - 1 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          actualTimeoutTime: new Date(
+            Date.now() - 0.5 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          action: "notify",
+          notificationsSent: 1,
+          isResolved: false,
+        },
+        {
+          id: "timeout-2",
+          processId: "sample-process-1",
+          stepId: "step-2",
+          expectedCompletionTime: new Date(
+            Date.now() - 2 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          actualTimeoutTime: new Date(
+            Date.now() - 1.5 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          action: "escalate",
+          notificationsSent: 2,
+          isResolved: false,
+        },
+        {
+          id: "timeout-3",
+          processId: "sample-process-1",
+          stepId: "step-1",
+          expectedCompletionTime: new Date(
+            Date.now() - 3 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          actualTimeoutTime: new Date(
+            Date.now() - 2.5 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          action: "auto_approve",
+          notificationsSent: 0,
+          isResolved: true,
+        },
+      ];
+
+      approvalTimeouts.value.push(...sampleTimeouts);
       saveToStorage();
     }
   };
@@ -1213,9 +1305,273 @@ export const useDocumentStore = defineStore("document", () => {
     };
   };
 
+  // 工作流API方法
+  const fetchWorkflows = async (params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const { workflowAPI } = await import("@/services/workflowAPI");
+      const response = await workflowAPI.getWorkflows(params);
+
+      if (response.success && response.workflows) {
+        approvalWorkflows.value = response.workflows;
+        return response;
+      } else {
+        throw new Error(response.message || "获取工作流列表失败");
+      }
+    } catch (error) {
+      console.error("获取工作流列表失败:", error);
+      throw error;
+    }
+  };
+
+  const updateWorkflow = async (
+    id: number,
+    updates: Partial<ApprovalWorkflow>
+  ) => {
+    try {
+      const { workflowAPI } = await import("@/services/workflowAPI");
+      const response = await workflowAPI.updateWorkflow(id, updates);
+
+      if (response.success && response.workflow) {
+        // 确保更新后的工作流包含所有必要字段
+        const updatedWorkflow: ApprovalWorkflow = {
+          ...response.workflow,
+          // 确保默认值存在
+          type: response.workflow.type || "sequential",
+          priority: response.workflow.priority || "medium",
+          category: response.workflow.category || "文档",
+          version: response.workflow.version || "1.0",
+          isActive:
+            response.workflow.isActive !== undefined
+              ? response.workflow.isActive
+              : true,
+          tags: response.workflow.tags || [],
+        };
+
+        // 更新本地状态 - 修复ID类型匹配问题
+        const index = approvalWorkflows.value.findIndex(
+          (w) => parseInt(w.id) === id
+        );
+        if (index !== -1) {
+          approvalWorkflows.value[index] = updatedWorkflow;
+          console.log(`✅ 本地状态更新成功: 工作流 ID: ${id}`, updatedWorkflow);
+        } else {
+          console.log(`⚠️ 未在本地状态中找到工作流 ID: ${id}`);
+        }
+        return updatedWorkflow;
+      } else {
+        throw new Error(response.message || "更新工作流失败");
+      }
+    } catch (error) {
+      console.error("更新工作流失败:", error);
+      throw error;
+    }
+  };
+
+  const deleteWorkflow = async (id: number) => {
+    try {
+      const { workflowAPI } = await import("@/services/workflowAPI");
+      const response = await workflowAPI.deleteWorkflow(id);
+
+      if (response.success) {
+        // 从本地状态中移除 - 修复ID类型匹配问题
+        const index = approvalWorkflows.value.findIndex(
+          (w) => parseInt(w.id) === id
+        );
+        if (index !== -1) {
+          approvalWorkflows.value.splice(index, 1);
+          console.log(`✅ 从本地状态中移除工作流 ID: ${id}`);
+        } else {
+          console.log(`⚠️ 未在本地状态中找到工作流 ID: ${id}`);
+        }
+        return true;
+      } else {
+        throw new Error(response.message || "删除工作流失败");
+      }
+    } catch (error) {
+      console.error("删除工作流失败:", error);
+      throw error;
+    }
+  };
+
+  const toggleWorkflowStatus = async (
+    id: number,
+    status: "active" | "inactive"
+  ) => {
+    try {
+      const { workflowAPI } = await import("@/services/workflowAPI");
+      const response = await workflowAPI.toggleWorkflowStatus(id, status);
+
+      if (response.success && response.workflow) {
+        // 确保更新后的工作流包含所有必要字段
+        const updatedWorkflow: ApprovalWorkflow = {
+          ...response.workflow,
+          // 确保默认值存在
+          type: response.workflow.type || "sequential",
+          priority: response.workflow.priority || "medium",
+          category: response.workflow.category || "文档",
+          version: response.workflow.version || "1.0",
+          isActive:
+            response.workflow.isActive !== undefined
+              ? response.workflow.isActive
+              : true,
+          tags: response.workflow.tags || [],
+        };
+
+        // 更新本地状态 - 修复ID类型匹配问题
+        const index = approvalWorkflows.value.findIndex(
+          (w) => parseInt(w.id) === id
+        );
+        if (index !== -1) {
+          approvalWorkflows.value[index] = updatedWorkflow;
+          console.log(
+            `✅ 本地状态更新成功: 工作流状态切换 ID: ${id}`,
+            updatedWorkflow
+          );
+        } else {
+          console.log(`⚠️ 未在本地状态中找到工作流 ID: ${id}`);
+        }
+        return updatedWorkflow;
+      } else {
+        throw new Error(response.message || "切换工作流状态失败");
+      }
+    } catch (error) {
+      console.error("切换工作流状态失败:", error);
+      throw error;
+    }
+  };
+
+  const fetchWorkflowTemplates = async (params?: {
+    category?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const { workflowTemplateAPI } = await import("@/services/workflowAPI");
+      const response = await workflowTemplateAPI.getTemplates(params);
+
+      if (response.success && response.templates) {
+        workflowTemplates.value = response.templates;
+        return response;
+      } else {
+        throw new Error(response.message || "获取模板列表失败");
+      }
+    } catch (error) {
+      console.error("获取模板列表失败:", error);
+      throw error;
+    }
+  };
+
+  const createWorkflowTemplateAPI = async (
+    template: Omit<WorkflowTemplate, "id" | "createdAt" | "updatedAt">
+  ) => {
+    try {
+      const { workflowTemplateAPI } = await import("@/services/workflowAPI");
+      const response = await workflowTemplateAPI.createTemplate(template);
+
+      if (response.success && response.template) {
+        // 确保新模板包含所有必要字段
+        const newTemplate: WorkflowTemplate = {
+          ...response.template,
+          // 确保默认值存在
+          category: response.template.category || "文档",
+          version: response.template.version || "1.0",
+          isActive:
+            response.template.isActive !== undefined
+              ? response.template.isActive
+              : true,
+          tags: response.template.tags || [],
+        };
+
+        // 更新本地状态
+        workflowTemplates.value.unshift(newTemplate); // 使用unshift确保新模板显示在列表顶部
+        console.log("✅ 新工作流模板已添加到本地状态:", newTemplate);
+        return newTemplate;
+      } else {
+        throw new Error(response.message || "创建模板失败");
+      }
+    } catch (error) {
+      console.error("创建模板失败:", error);
+      throw error;
+    }
+  };
+
+  const updateWorkflowTemplate = async (
+    id: number,
+    updates: Partial<WorkflowTemplate>
+  ) => {
+    try {
+      const { workflowTemplateAPI } = await import("@/services/workflowAPI");
+      const response = await workflowTemplateAPI.updateTemplate(id, updates);
+
+      if (response.success && response.template) {
+        // 确保更新后的模板包含所有必要字段
+        const updatedTemplate: WorkflowTemplate = {
+          ...response.template,
+          // 确保默认值存在
+          category: response.template.category || "文档",
+          version: response.template.version || "1.0",
+          isActive:
+            response.template.isActive !== undefined
+              ? response.template.isActive
+              : true,
+          tags: response.template.tags || [],
+        };
+
+        // 更新本地状态
+        const index = workflowTemplates.value.findIndex(
+          (t) => t.id === id.toString()
+        );
+        if (index !== -1) {
+          workflowTemplates.value[index] = updatedTemplate;
+          console.log(
+            `✅ 本地状态更新成功: 工作流模板 ID: ${id}`,
+            updatedTemplate
+          );
+        } else {
+          console.log(`⚠️ 未在本地状态中找到工作流模板 ID: ${id}`);
+        }
+        return updatedTemplate;
+      } else {
+        throw new Error(response.message || "更新模板失败");
+      }
+    } catch (error) {
+      console.error("更新模板失败:", error);
+      throw error;
+    }
+  };
+
+  const deleteWorkflowTemplate = async (id: number) => {
+    try {
+      const { workflowTemplateAPI } = await import("@/services/workflowAPI");
+      const response = await workflowTemplateAPI.deleteTemplate(id);
+
+      if (response.success) {
+        // 从本地状态中移除
+        const index = workflowTemplates.value.findIndex(
+          (t) => t.id === id.toString()
+        );
+        if (index !== -1) {
+          workflowTemplates.value.splice(index, 1);
+        }
+        return true;
+      } else {
+        throw new Error(response.message || "删除模板失败");
+      }
+    } catch (error) {
+      console.error("删除模板失败:", error);
+      throw error;
+    }
+  };
+
   // 初始化
   loadFromStorage();
   initializeDefaultWorkflows();
+  initializeSampleData();
 
   return {
     // 状态
@@ -1263,5 +1619,16 @@ export const useDocumentStore = defineStore("document", () => {
     createWorkflowTemplate,
     createWorkflowFromTemplate,
     getApprovalStatistics,
+    initializeSampleData,
+
+    // 工作流API方法
+    fetchWorkflows,
+    updateWorkflow,
+    deleteWorkflow,
+    toggleWorkflowStatus,
+    fetchWorkflowTemplates,
+    createWorkflowTemplateAPI,
+    updateWorkflowTemplate,
+    deleteWorkflowTemplate,
   };
 });

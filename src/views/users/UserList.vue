@@ -3,10 +3,6 @@
     <!-- 页面标题 -->
     <div class="page-header">
       <h1>用户管理</h1>
-      <el-button type="primary" @click="handleAddUser" v-if="canAddUsers">
-        <el-icon><Plus /></el-icon>
-        添加用户
-      </el-button>
     </div>
 
     <!-- 搜索和筛选 -->
@@ -65,6 +61,14 @@
           <div class="card-header">
             <span>用户列表</span>
             <div class="header-actions">
+              <el-button
+                type="primary"
+                size="small"
+                @click="handleAddUser"
+                v-if="userStore.hasPermission('user:create')"
+              >
+                添加用户
+              </el-button>
               <el-button size="small" @click="handleExport">导出</el-button>
               <el-button size="small" @click="handleRefresh">刷新</el-button>
             </div>
@@ -123,13 +127,20 @@
 
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" @click="viewUser(row.id)">查看</el-button>
-              <el-button size="small" type="primary" @click="editUser(row.id)"
-                >编辑</el-button
-              >
-              <el-button size="small" type="danger" @click="deleteUser(row.id)"
-                >删除</el-button
-              >
+              <div class="action-buttons">
+                <el-button size="small" @click="viewUser(row.id)"
+                  >查看</el-button
+                >
+                <el-button size="small" type="primary" @click="editUser(row.id)"
+                  >编辑</el-button
+                >
+                <el-button
+                  size="small"
+                  type="danger"
+                  @click="deleteUser(row.id)"
+                  >删除</el-button
+                >
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -155,19 +166,13 @@
 import { ref, reactive, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Search } from "@element-plus/icons-vue";
+import { Search } from "@element-plus/icons-vue";
 import { useUserStore } from "@/stores/user";
-import { hasPermission } from "@/utils/permissions";
+
 import { getRoleTagType } from "@/utils/tagTypes";
 
 const router = useRouter();
 const userStore = useUserStore();
-
-// 权限检查
-const canAddUsers = computed(() => {
-  const currentUser = userStore.currentUser;
-  return currentUser ? hasPermission(currentUser.role, "canAddUsers") : false;
-});
 
 // 响应式数据
 const loading = ref(false);
@@ -233,16 +238,21 @@ const handleCurrentChange = (page: number) => {
   currentPage.value = page;
 };
 
-const handleRefresh = () => {
-  handleSearch();
-};
-
-const handleExport = () => {
-  ElMessage.success("导出功能开发中...");
+const handleRefresh = async () => {
+  try {
+    await userStore.fetchUsers();
+    handleSearch();
+  } catch (error) {
+    console.error("刷新用户列表失败:", error);
+  }
 };
 
 const handleAddUser = () => {
   router.push("/dashboard/users/add");
+};
+
+const handleExport = () => {
+  ElMessage.success("导出功能开发中...");
 };
 
 const viewUser = (id: number) => {
@@ -261,8 +271,10 @@ const deleteUser = async (id: number) => {
       type: "warning",
     });
 
-    userStore.deleteUser(id);
+    await userStore.deleteUser(id);
     ElMessage.success("删除成功");
+    // 重新获取用户列表
+    await userStore.fetchUsers();
     handleSearch();
   } catch (error) {
     if (error !== "cancel") {
@@ -298,8 +310,21 @@ const formatDate = (dateString: string) => {
 };
 
 // 生命周期
-onMounted(() => {
-  handleSearch();
+onMounted(async () => {
+  try {
+    // 尝试获取用户列表
+    await userStore.fetchUsers();
+    handleSearch();
+  } catch (error) {
+    console.error("加载用户列表失败:", error);
+    // 如果失败，尝试强制刷新
+    try {
+      await userStore.forceRefreshUsers();
+      handleSearch();
+    } catch (refreshError) {
+      console.error("强制刷新用户列表也失败:", refreshError);
+    }
+  }
 });
 </script>
 
@@ -342,5 +367,21 @@ onMounted(() => {
 .pagination-wrapper {
   margin-top: 20px;
   text-align: center;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.action-buttons .el-button + .el-button {
+  margin-left: 0;
 }
 </style>

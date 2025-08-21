@@ -1,621 +1,449 @@
 <template>
-  <div class="review-center">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <h1>审核中心</h1>
-      <div class="header-actions">
-        <el-button @click="handleRefresh">刷新</el-button>
-      </div>
-    </div>
+  <div class="review-center-container">
+    <el-card class="review-card">
+      <template #header>
+        <div class="card-header">
+          <h2>🔍 审核中心</h2>
+          <p class="subtitle">专利审核与审批管理</p>
+        </div>
+      </template>
 
-    <!-- 统计卡片 -->
-    <div class="stats-section">
-      <el-row :gutter="20">
+      <!-- 审核统计 -->
+      <el-row :gutter="20" class="stats-section">
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-number">{{ statistics.pending }}</div>
-              <div class="stat-label">待审核</div>
+              <div class="stat-icon pending">
+                <el-icon><Clock /></el-icon>
+              </div>
+              <div class="stat-info">
+                <h3>{{ stats.pendingReviews }}</h3>
+                <p>待审核</p>
+              </div>
             </div>
           </el-card>
         </el-col>
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-number">{{ statistics.approved }}</div>
-              <div class="stat-label">已通过</div>
+              <div class="stat-icon approved">
+                <el-icon><Check /></el-icon>
+              </div>
+              <div class="stat-info">
+                <h3>{{ stats.approvedReviews }}</h3>
+                <p>已通过</p>
+              </div>
             </div>
           </el-card>
         </el-col>
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-number">{{ statistics.rejected }}</div>
-              <div class="stat-label">已拒绝</div>
+              <div class="stat-icon rejected">
+                <el-icon><Close /></el-icon>
+              </div>
+              <div class="stat-info">
+                <h3>{{ stats.rejectedReviews }}</h3>
+                <p>已驳回</p>
+              </div>
             </div>
           </el-card>
         </el-col>
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-number">{{ statistics.today }}</div>
-              <div class="stat-label">今日审核</div>
+              <div class="stat-icon total">
+                <el-icon><Document /></el-icon>
+              </div>
+              <div class="stat-info">
+                <h3>{{ stats.totalReviews }}</h3>
+                <p>总审核</p>
+              </div>
             </div>
           </el-card>
         </el-col>
       </el-row>
-    </div>
 
-    <!-- 主要内容区域 -->
-    <el-tabs v-model="activeTab" class="review-tabs">
-      <el-tab-pane label="待审核" name="pending">
-        <!-- 筛选条件 -->
-        <div class="filter-section">
-          <el-card>
-            <el-form :model="filterForm" inline>
-              <el-form-item label="审核状态">
-                <el-select
-                  v-model="filterForm.status"
-                  placeholder="选择状态"
-                  clearable
-                >
-                  <el-option label="待审核" value="pending" />
-                  <el-option label="已通过" value="approved" />
-                  <el-option label="已拒绝" value="rejected" />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item label="专利类型">
-                <el-select
-                  v-model="filterForm.type"
-                  placeholder="选择类型"
-                  clearable
-                >
-                  <el-option label="发明专利" value="invention" />
-                  <el-option label="实用新型" value="utility_model" />
-                  <el-option label="外观设计" value="design" />
-                  <el-option label="软件专利" value="software" />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item label="提交日期">
-                <el-date-picker
-                  v-model="filterForm.dateRange"
-                  type="daterange"
-                  range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期"
-                  format="YYYY-MM-DD"
-                  value-format="YYYY-MM-DD"
-                />
-              </el-form-item>
-
-              <el-form-item>
-                <el-button type="primary" @click="handleFilter">
-                  筛选
-                </el-button>
-                <el-button @click="handleResetFilter">重置</el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-        </div>
-
-        <!-- 审核列表 -->
-        <div class="list-section">
-          <el-card>
+      <!-- 审核列表 -->
+      <el-row :gutter="20" class="review-section">
+        <el-col :span="24">
+          <el-card class="review-list-card">
             <template #header>
-              <div class="card-header">
-                <span>审核列表 (共 {{ filteredReviews.length }} 条记录)</span>
+              <div class="review-header">
+                <h3>审核列表</h3>
+                <div class="filter-actions">
+                  <el-select
+                    v-model="filterStatus"
+                    placeholder="状态筛选"
+                    style="width: 120px"
+                  >
+                    <el-option label="全部" value="" />
+                    <el-option label="待审核" value="pending" />
+                    <el-option label="已通过" value="approved" />
+                    <el-option label="已驳回" value="rejected" />
+                  </el-select>
+                  <el-button type="primary" @click="refreshList">
+                    <el-icon><Refresh /></el-icon>
+                    刷新
+                  </el-button>
+                </div>
               </div>
             </template>
-
-            <el-table
-              :data="filteredReviews"
-              v-loading="loading"
-              stripe
-              @selection-change="handleSelectionChange"
-            >
-              <el-table-column type="selection" width="55" />
-
-              <el-table-column prop="patentNumber" label="专利号" width="150" />
-
-              <el-table-column prop="title" label="专利标题" min-width="200">
-                <template #default="{ row }">
-                  <el-link @click="viewPatent(row.patentId)">{{
-                    row.title
-                  }}</el-link>
-                </template>
-              </el-table-column>
-
-              <el-table-column prop="type" label="类型" width="120">
-                <template #default="{ row }">
-                  <el-tag size="small">{{ getTypeText(row.type) }}</el-tag>
-                </template>
-              </el-table-column>
-
-              <el-table-column prop="applicant" label="申请人" width="120" />
-
-              <el-table-column prop="submitDate" label="提交日期" width="120" />
-
-              <el-table-column prop="status" label="状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="getStatusType(row.status)">
-                    {{ getStatusText(row.status) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-
-              <el-table-column prop="priority" label="优先级" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="getPriorityType(row.priority)" size="small">
-                    {{ getPriorityText(row.priority) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-
-              <el-table-column label="操作" width="250" fixed="right">
-                <template #default="{ row }">
-                  <el-button size="small" @click="viewReview(row.id)">
-                    查看详情
-                  </el-button>
-                  <el-button
-                    v-if="row.status === 'pending'"
-                    size="small"
-                    type="success"
-                    @click="approveReview(row.id)"
-                  >
-                    通过
-                  </el-button>
-                  <el-button
-                    v-if="row.status === 'pending'"
-                    size="small"
-                    type="danger"
-                    @click="rejectReview(row.id)"
-                  >
-                    拒绝
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-
-            <!-- 分页 -->
-            <div class="pagination-wrapper">
-              <el-pagination
-                v-model:current-page="currentPage"
-                v-model:page-size="pageSize"
-                :page-sizes="[10, 20, 50, 100]"
-                :total="total"
-                layout="total, sizes, prev, pager, next, jumper"
-                @size-change="handleSizeChange"
-                @current-change="handleCurrentChange"
-              />
+            <div class="review-content">
+              <el-table
+                :data="filteredReviewList"
+                style="width: 100%"
+                v-loading="loading"
+              >
+                <el-table-column prop="id" label="专利ID" width="100" />
+                <el-table-column prop="title" label="专利名称" />
+                <el-table-column
+                  prop="user.realName"
+                  label="申请人"
+                  width="120"
+                />
+                <el-table-column
+                  prop="applicationDate"
+                  label="申请日期"
+                  width="120"
+                />
+                <el-table-column prop="status" label="状态" width="100">
+                  <template #default="scope">
+                    <el-tag :type="getStatusType(scope.row.status)">
+                      {{ getStatusText(scope.row.status) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="priority" label="优先级" width="100">
+                  <template #default="scope">
+                    <el-tag
+                      :type="getPriorityType(scope.row.priority)"
+                      size="small"
+                    >
+                      {{ getPriorityText(scope.row.priority) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="200">
+                  <template #default="scope">
+                    <el-button size="small" @click="viewPatent(scope.row)">
+                      查看
+                    </el-button>
+                    <el-button
+                      v-if="scope.row.status === 'pending'"
+                      size="small"
+                      type="success"
+                      @click="approvePatent(scope.row)"
+                    >
+                      通过
+                    </el-button>
+                    <el-button
+                      v-if="scope.row.status === 'pending'"
+                      size="small"
+                      type="danger"
+                      @click="rejectPatent(scope.row)"
+                    >
+                      驳回
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
           </el-card>
+        </el-col>
+      </el-row>
+
+      <!-- 审核详情对话框 -->
+      <el-dialog v-model="showDetailDialog" title="专利详情" width="60%">
+        <div v-if="selectedPatent" class="patent-detail">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="专利名称">{{
+              selectedPatent.title
+            }}</el-descriptions-item>
+            <el-descriptions-item label="申请人">{{
+              selectedPatent.user?.realName || "未知"
+            }}</el-descriptions-item>
+            <el-descriptions-item label="申请日期">{{
+              selectedPatent.applicationDate
+            }}</el-descriptions-item>
+            <el-descriptions-item label="状态">{{
+              getStatusText(selectedPatent.status)
+            }}</el-descriptions-item>
+            <el-descriptions-item label="优先级">{{
+              getPriorityText(selectedPatent.priority)
+            }}</el-descriptions-item>
+            <el-descriptions-item label="技术领域">{{
+              selectedPatent.technicalField || "未指定"
+            }}</el-descriptions-item>
+          </el-descriptions>
+
+          <div class="patent-description">
+            <h4>专利描述</h4>
+            <p>{{ selectedPatent.description || "暂无描述" }}</p>
+          </div>
+
+          <div class="review-comments">
+            <h4>审核意见</h4>
+            <el-input
+              v-model="reviewComment"
+              type="textarea"
+              :rows="4"
+              placeholder="请输入审核意见..."
+            />
+          </div>
         </div>
-      </el-tab-pane>
-
-      <!-- 委托管理 -->
-      <el-tab-pane label="委托管理" name="delegation">
-        <DelegationManagement />
-      </el-tab-pane>
-
-      <!-- 超时处理 -->
-      <el-tab-pane label="超时处理" name="timeout">
-        <TimeoutManagement />
-      </el-tab-pane>
-
-      <!-- 工作流统计 -->
-      <el-tab-pane label="工作流统计" name="statistics">
-        <WorkflowStatistics />
-      </el-tab-pane>
-    </el-tabs>
-
-    <!-- 审核详情对话框 -->
-    <el-dialog
-      v-model="reviewDialogVisible"
-      title="审核详情"
-      width="800px"
-      :close-on-click-modal="false"
-    >
-      <div v-if="currentReview" class="review-detail">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="专利号">
-            {{ currentReview.patentNumber }}
-          </el-descriptions-item>
-          <el-descriptions-item label="专利标题">
-            {{ currentReview.title }}
-          </el-descriptions-item>
-          <el-descriptions-item label="专利类型">
-            {{ getTypeText(currentReview.type) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="申请人">
-            {{ currentReview.applicant }}
-          </el-descriptions-item>
-          <el-descriptions-item label="提交日期">
-            {{ currentReview.submitDate }}
-          </el-descriptions-item>
-          <el-descriptions-item label="当前状态">
-            <el-tag :type="getStatusType(currentReview.status)">
-              {{ getStatusText(currentReview.status) }}
-            </el-tag>
-          </el-descriptions-item>
-        </el-descriptions>
-
-        <div class="review-form" v-if="currentReview.status === 'pending'">
-          <h3>审核意见</h3>
-          <el-form :model="reviewForm" label-width="100px">
-            <el-form-item label="审核结果">
-              <el-radio-group v-model="reviewForm.result">
-                <el-radio value="approved">通过</el-radio>
-                <el-radio value="rejected">拒绝</el-radio>
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item label="审核意见">
-              <el-input
-                v-model="reviewForm.comment"
-                type="textarea"
-                :rows="4"
-                placeholder="请输入审核意见..."
-              />
-            </el-form-item>
-          </el-form>
-        </div>
-
-        <div
-          v-if="currentReview.reviewHistory.length > 0"
-          class="review-history"
-        >
-          <h3>审核历史</h3>
-          <el-timeline>
-            <el-timeline-item
-              v-for="item in currentReview.reviewHistory"
-              :key="item.id"
-              :timestamp="item.time"
-              :type="getTimelineType(item.action)"
-            >
-              <div class="timeline-content">
-                <p>
-                  <strong>{{ item.reviewer }}</strong> {{ item.action }}
-                </p>
-                <p v-if="item.comment" class="comment">{{ item.comment }}</p>
-              </div>
-            </el-timeline-item>
-          </el-timeline>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="reviewDialogVisible = false">关闭</el-button>
-          <el-button
-            v-if="currentReview?.status === 'pending'"
-            type="primary"
-            :loading="submitting"
-            @click="submitReview"
-          >
-            提交审核
-          </el-button>
-        </div>
-      </template>
-    </el-dialog>
+        <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="showDetailDialog = false">取消</el-button>
+            <el-button type="primary" @click="submitReview">提交审核</el-button>
+          </span>
+        </template>
+      </el-dialog>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { useUserStore } from "@/stores/user";
-import { usePatentStore } from "@/stores/patent";
-import { hasPermission } from "@/utils/permissions";
-import DelegationManagement from "@/components/DelegationManagement.vue";
-import TimeoutManagement from "@/components/TimeoutManagement.vue";
-import WorkflowStatistics from "@/components/WorkflowStatistics.vue";
+import {
+  Clock,
+  Check,
+  Close,
+  Document,
+  Refresh,
+} from "@element-plus/icons-vue";
+import { patentApplicationAPI } from "@/utils/api";
 
-// 审核记录接口
-interface ReviewItem {
-  id: number;
-  patentId: number;
-  patentNumber: string;
-  title: string;
-  type: string;
-  applicant: string;
-  submitDate: string;
-  status: "pending" | "approved" | "rejected";
-  priority: "high" | "medium" | "low";
-  reviewHistory: ReviewHistoryItem[];
-}
-
-interface ReviewHistoryItem {
-  id: number;
-  reviewer: string;
-  action: string;
-  comment?: string;
-  time: string;
-}
-
-const router = useRouter();
-const userStore = useUserStore();
-const patentStore = usePatentStore();
-
-// 权限检查
-const canReview = computed(() => {
-  return hasPermission(
-    userStore.currentUser?.role || "user",
-    "canAccessReviewCenter"
-  );
+// 统计数据
+const stats = reactive({
+  pendingReviews: 0,
+  approvedReviews: 0,
+  rejectedReviews: 0,
+  totalReviews: 0,
 });
 
-// 响应式数据
+// 筛选状态
+const filterStatus = ref("");
+
+// 审核列表数据
+const reviewList = ref([]);
 const loading = ref(false);
-const submitting = ref(false);
-const currentPage = ref(1);
-const pageSize = ref(20);
-const total = ref(0);
-const selectedReviews = ref<number[]>([]);
-const reviewDialogVisible = ref(false);
-const currentReview = ref<ReviewItem | null>(null);
-const activeTab = ref("pending");
 
-// 筛选表单
-const filterForm = reactive({
-  status: "",
-  type: "",
-  dateRange: null as [string, string] | null,
-});
-
-// 审核表单
-const reviewForm = reactive({
-  result: "approved" as "approved" | "rejected",
-  comment: "",
-});
-
-// 使用真实的专利申请数据
-const reviews = computed(() => {
-  return patentStore.getApplications().map((app) => ({
-    id: app.id,
-    patentId: app.patentId,
-    patentNumber: app.patentNumber,
-    title: app.title,
-    type: app.type,
-    applicant: app.applicant,
-    submitDate: app.submitDate,
-    status: app.status,
-    priority: app.priority,
-    reviewHistory: app.reviewHistory,
-  }));
-});
-
-// 统计信息
-const statistics = computed(() => {
-  const pending = reviews.value.filter((r) => r.status === "pending").length;
-  const approved = reviews.value.filter((r) => r.status === "approved").length;
-  const rejected = reviews.value.filter((r) => r.status === "rejected").length;
-  const today = reviews.value.filter((r) => {
-    const today = new Date().toISOString().split("T")[0];
-    return r.submitDate === today;
-  }).length;
-
-  return { pending, approved, rejected, today };
-});
-
-// 筛选后的审核列表
-const filteredReviews = computed(() => {
-  let filtered = [...reviews.value];
-
-  if (filterForm.status) {
-    filtered = filtered.filter((r) => r.status === filterForm.status);
+// 筛选后的列表
+const filteredReviewList = computed(() => {
+  if (!filterStatus.value) {
+    return reviewList.value;
   }
-
-  if (filterForm.type) {
-    filtered = filtered.filter((r) => r.type === filterForm.type);
-  }
-
-  if (filterForm.dateRange) {
-    const [start, end] = filterForm.dateRange;
-    filtered = filtered.filter(
-      (r) => r.submitDate >= start && r.submitDate <= end
-    );
-  }
-
-  total.value = filtered.length;
-  return filtered;
-});
-
-// 方法
-const handleFilter = () => {
-  currentPage.value = 1;
-  ElMessage.success(`筛选完成，找到 ${filteredReviews.value.length} 条记录`);
-};
-
-const handleResetFilter = () => {
-  Object.assign(filterForm, {
-    status: "",
-    type: "",
-    dateRange: null,
+  return reviewList.value.filter((item: any) => {
+    if (filterStatus.value === "pending") return item.status === "pending";
+    if (filterStatus.value === "approved") return item.status === "approved";
+    if (filterStatus.value === "rejected") return item.status === "rejected";
+    return true;
   });
-  currentPage.value = 1;
-  ElMessage.success("已重置筛选条件");
-};
+});
 
-const handleRefresh = () => {
-  ElMessage.success("数据已刷新");
-};
+// 对话框相关
+const showDetailDialog = ref(false);
+const selectedPatent = ref<any>(null);
+const reviewComment = ref("");
 
-const handleSelectionChange = (selection: ReviewItem[]) => {
-  selectedReviews.value = selection.map((item) => item.id);
-};
-
-const handleSizeChange = (size: number) => {
-  pageSize.value = size;
-};
-
-const handleCurrentChange = (page: number) => {
-  currentPage.value = page;
-};
-
-const viewPatent = (patentId: number) => {
-  router.push(`/dashboard/patents/${patentId}`);
-};
-
-const viewReview = (reviewId: number) => {
-  const review = reviews.value.find((r) => r.id === reviewId);
-  if (review) {
-    currentReview.value = review;
-    reviewForm.result = "approved";
-    reviewForm.comment = "";
-    reviewDialogVisible.value = true;
-  }
-};
-
-const approveReview = async (reviewId: number) => {
-  try {
-    await ElMessageBox.confirm("确定要通过这个专利申请吗？", "确认审核", {
-      confirmButtonText: "通过",
-      cancelButtonText: "取消",
-      type: "success",
-    });
-
-    await patentStore.reviewApplication(reviewId, "approved");
-    ElMessage.success("审核通过，专利申请已转为正式专利");
-  } catch (error) {
-    if (error !== "cancel") {
-      ElMessage.error("审核失败");
-    }
-  }
-};
-
-const rejectReview = async (reviewId: number) => {
-  try {
-    const { value } = await ElMessageBox.prompt("请输入拒绝理由", "确认拒绝", {
-      confirmButtonText: "拒绝",
-      cancelButtonText: "取消",
-      inputType: "textarea",
-      inputValidator: (value) => {
-        if (!value || value.trim().length === 0) {
-          return "请输入拒绝理由";
-        }
-        return true;
-      },
-    });
-
-    await patentStore.reviewApplication(reviewId, "rejected", value);
-    ElMessage.success("已拒绝申请");
-  } catch (error) {
-    if (error !== "cancel") {
-      ElMessage.error("审核失败");
-    }
-  }
-};
-
-const submitReview = async () => {
-  if (!currentReview.value) return;
-
-  try {
-    submitting.value = true;
-
-    // 调用真实的审核API
-    await patentStore.reviewApplication(
-      currentReview.value.id,
-      reviewForm.result,
-      reviewForm.comment
-    );
-
-    ElMessage.success(
-      reviewForm.result === "approved"
-        ? "审核通过，专利申请已转为正式专利"
-        : "已拒绝申请"
-    );
-    reviewDialogVisible.value = false;
-  } catch (error) {
-    ElMessage.error("审核失败");
-  } finally {
-    submitting.value = false;
-  }
-};
-
-// 工具函数
+// 获取状态类型
 const getStatusType = (status: string) => {
-  const types: Record<string, string> = {
-    pending: "warning",
-    approved: "success",
-    rejected: "danger",
-  };
-  return types[status] || "info";
-};
-
-const getStatusText = (status: string) => {
-  const texts: Record<string, string> = {
-    pending: "待审核",
-    approved: "已通过",
-    rejected: "已拒绝",
-  };
-  return texts[status] || status;
-};
-
-const getTypeText = (type: string) => {
-  const texts: Record<string, string> = {
-    invention: "发明专利",
-    utility_model: "实用新型",
-    design: "外观设计",
-    software: "软件专利",
-  };
-  return texts[type] || type;
-};
-
-const getPriorityType = (priority: string) => {
-  const types: Record<string, string> = {
-    high: "danger",
-    medium: "warning",
-    low: "info",
-  };
-  return types[priority] || "info";
-};
-
-const getPriorityText = (priority: string) => {
-  const texts: Record<string, string> = {
-    high: "高",
-    medium: "中",
-    low: "低",
-  };
-  return texts[priority] || priority;
-};
-
-const getTimelineType = (action: string) => {
-  if (action.includes("通过")) return "success";
-  if (action.includes("拒绝")) return "danger";
-  return "primary";
-};
-
-// 权限检查
-onMounted(() => {
-  if (!canReview.value) {
-    ElMessage.error("您没有访问审核中心的权限");
-    router.push("/dashboard");
+  switch (status) {
+    case "待审核":
+      return "warning";
+    case "已通过":
+      return "success";
+    case "已驳回":
+      return "danger";
+    default:
+      return "info";
   }
+};
+
+// 获取优先级类型
+const getPriorityType = (priority: string) => {
+  switch (priority) {
+    case "high":
+      return "danger";
+    case "medium":
+      return "warning";
+    case "low":
+      return "info";
+    default:
+      return "info";
+  }
+};
+
+// 获取状态文本
+const getStatusText = (status: string) => {
+  switch (status) {
+    case "pending":
+      return "待审核";
+    case "approved":
+      return "已通过";
+    case "rejected":
+      return "已驳回";
+    default:
+      return status;
+  }
+};
+
+// 获取优先级文本
+const getPriorityText = (priority: string) => {
+  switch (priority) {
+    case "high":
+      return "高";
+    case "medium":
+      return "中";
+    case "low":
+      return "低";
+    default:
+      return priority;
+  }
+};
+
+// 查看专利详情
+const viewPatent = (patent: any) => {
+  selectedPatent.value = patent;
+  showDetailDialog.value = true;
+};
+
+// 通过专利
+const approvePatent = async (patent: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要通过专利 "${patent.title}" 吗？`,
+      "确认通过",
+      {
+        type: "warning",
+      }
+    );
+
+    await patentApplicationAPI.reviewApplication(patent.id, {
+      status: "approved",
+    });
+
+    // 刷新列表
+    await fetchApplications();
+    ElMessage.success("专利审核通过");
+  } catch (error) {
+    if (error !== "cancel") {
+      console.error("审核失败:", error);
+      ElMessage.error("审核失败");
+    }
+  }
+};
+
+// 驳回专利
+const rejectPatent = async (patent: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要驳回专利 "${patent.patentName}" 吗？`,
+      "确认驳回",
+      {
+        type: "warning",
+      }
+    );
+
+    await patentApplicationAPI.reviewApplication(patent.id, {
+      status: "rejected",
+    });
+
+    // 刷新列表
+    await fetchApplications();
+    ElMessage.error("专利已驳回");
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error("操作失败");
+    }
+  }
+};
+
+// 提交审核
+const submitReview = () => {
+  if (!reviewComment.value.trim()) {
+    ElMessage.warning("请输入审核意见");
+    return;
+  }
+
+  ElMessage.success("审核意见已提交");
+  showDetailDialog.value = false;
+  reviewComment.value = "";
+};
+
+// 获取专利申请列表
+const fetchApplications = async () => {
+  try {
+    loading.value = true;
+    const response = await patentApplicationAPI.getApplications({
+      limit: 1000,
+      status: filterStatus.value || undefined,
+    });
+
+    reviewList.value = response.applications || [];
+
+    // 更新统计数据
+    const pending = reviewList.value.filter(
+      (item: any) => item.status === "pending"
+    ).length;
+    const approved = reviewList.value.filter(
+      (item: any) => item.status === "approved"
+    ).length;
+    const rejected = reviewList.value.filter(
+      (item: any) => item.status === "rejected"
+    ).length;
+
+    stats.pendingReviews = pending;
+    stats.approvedReviews = approved;
+    stats.rejectedReviews = rejected;
+    stats.totalReviews = reviewList.value.length;
+  } catch (error) {
+    console.error("获取专利申请列表失败:", error);
+    ElMessage.error("获取专利申请列表失败");
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 刷新列表
+const refreshList = () => {
+  fetchApplications();
+  ElMessage.success("列表已刷新");
+};
+
+onMounted(() => {
+  console.log("审核中心页面已加载");
+  fetchApplications();
 });
 </script>
 
 <style scoped>
-.review-center {
+.review-center-container {
   padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.review-card {
   margin-bottom: 20px;
 }
 
-.page-header h1 {
-  margin: 0;
-  color: #2c3e50;
+.card-header {
+  text-align: center;
 }
 
-.header-actions {
-  display: flex;
-  gap: 10px;
+.card-header h2 {
+  margin: 0;
+  color: #303133;
+  font-size: 24px;
+}
+
+.subtitle {
+  margin: 10px 0 0 0;
+  color: #909399;
+  font-size: 14px;
 }
 
 .stats-section {
@@ -623,70 +451,116 @@ onMounted(() => {
 }
 
 .stat-card {
-  text-align: center;
+  height: 100%;
 }
 
 .stat-content {
+  display: flex;
+  align-items: center;
   padding: 20px;
 }
 
-.stat-number {
-  font-size: 2em;
+.stat-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 15px;
+  color: white;
+  font-size: 24px;
+}
+
+.stat-icon.pending {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+}
+
+.stat-icon.approved {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+.stat-icon.rejected {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+}
+
+.stat-icon.total {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-info h3 {
+  margin: 0 0 5px 0;
+  font-size: 28px;
+  color: #303133;
   font-weight: bold;
-  color: #409eff;
-  margin-bottom: 5px;
 }
 
-.stat-label {
-  color: #666;
-  font-size: 0.9em;
+.stat-info p {
+  margin: 0;
+  color: #909399;
+  font-size: 14px;
 }
 
-.filter-section {
+.review-section {
   margin-bottom: 20px;
 }
 
-.list-section {
-  margin-bottom: 20px;
-}
-
-.card-header {
+.review-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.pagination-wrapper {
-  margin-top: 20px;
-  text-align: center;
+.review-header h3 {
+  margin: 0;
+  color: #303133;
 }
 
-.review-detail {
-  max-height: 600px;
-  overflow-y: auto;
+.filter-actions {
+  display: flex;
+  gap: 10px;
 }
 
-.review-form {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
+.review-content {
+  padding: 10px 0;
 }
 
-.review-history {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
+.patent-detail {
+  padding: 20px 0;
 }
 
-.timeline-content .comment {
-  color: #666;
-  font-size: 0.9em;
-  margin-top: 5px;
+.patent-description {
+  margin: 20px 0;
+}
+
+.patent-description h4 {
+  margin: 0 0 10px 0;
+  color: #303133;
+}
+
+.patent-description p {
+  margin: 0;
+  color: #606266;
+  line-height: 1.6;
+}
+
+.review-comments {
+  margin: 20px 0;
+}
+
+.review-comments h4 {
+  margin: 0 0 10px 0;
+  color: #303133;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+:deep(.el-card__header) {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #ebeef5;
 }
 </style>

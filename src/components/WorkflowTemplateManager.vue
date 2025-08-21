@@ -85,86 +85,92 @@
     </div>
 
     <!-- 创建模板对话框 -->
-    <el-dialog v-model="showCreateTemplate" title="创建工作流模板" width="60%">
+    <el-dialog v-model="showCreateTemplate" title="创建工作流模板" width="70%">
       <el-form
         ref="templateFormRef"
         :model="templateForm"
         :rules="templateRules"
-        label-width="120px"
+        label-width="140px"
+        class="template-form"
       >
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="模板名称" prop="name">
-              <el-input
-                v-model="templateForm.name"
-                placeholder="请输入模板名称"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="分类" prop="category">
-              <el-select
-                v-model="templateForm.category"
-                placeholder="请选择分类"
-                style="width: 100%"
-              >
-                <el-option label="文档" value="文档" />
-                <el-option label="专利" value="专利" />
-                <el-option label="合同" value="合同" />
-                <el-option label="报告" value="报告" />
-                <el-option label="其他" value="其他" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <!-- 基本信息分组 -->
+        <div class="form-section">
+          <h4 class="section-title">基本信息</h4>
+          <el-row :gutter="24">
+            <el-col :span="12">
+              <el-form-item label="模板名称" prop="name">
+                <el-input
+                  v-model="templateForm.name"
+                  placeholder="请输入模板名称"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="分类" prop="category">
+                <el-select
+                  v-model="templateForm.category"
+                  placeholder="请选择分类"
+                  style="width: 100%"
+                >
+                  <el-option label="文档" value="文档" />
+                  <el-option label="专利" value="专利" />
+                  <el-option label="合同" value="合同" />
+                  <el-option label="报告" value="报告" />
+                  <el-option label="其他" value="其他" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="复杂度" prop="complexity">
-              <el-select
-                v-model="templateForm.complexity"
-                placeholder="请选择复杂度"
-                style="width: 100%"
-              >
-                <el-option label="简单" value="simple" />
-                <el-option label="中等" value="medium" />
-                <el-option label="复杂" value="complex" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="预计耗时(小时)" prop="estimatedDuration">
-              <el-input-number
-                v-model="templateForm.estimatedDuration"
-                :min="1"
-                :max="720"
-                style="width: 100%"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
+          <el-row :gutter="24">
+            <el-col :span="12">
+              <el-form-item label="复杂度" prop="complexity">
+                <el-select
+                  v-model="templateForm.complexity"
+                  placeholder="请选择复杂度"
+                  style="width: 100%"
+                >
+                  <el-option label="简单" value="simple" />
+                  <el-option label="中等" value="medium" />
+                  <el-option label="复杂" value="complex" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="预计耗时(小时)" prop="estimatedDuration">
+                <el-input-number
+                  v-model="templateForm.estimatedDuration"
+                  :min="1"
+                  :max="720"
+                  style="width: 100%"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <el-form-item label="描述" prop="description">
-          <el-input
-            v-model="templateForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入模板描述"
-          />
-        </el-form-item>
+          <el-form-item label="描述" prop="description">
+            <el-input
+              v-model="templateForm.description"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入模板描述"
+            />
+          </el-form-item>
+        </div>
 
-        <!-- 步骤配置 -->
-        <el-form-item label="审批步骤">
+        <!-- 步骤配置分组 -->
+        <div class="form-section">
+          <h4 class="section-title">审批步骤</h4>
           <div class="steps-config">
             <div
               v-for="(step, index) in templateForm.steps"
               :key="index"
               class="step-config"
             >
-              <el-card>
+              <el-card class="step-card">
                 <template #header>
                   <div class="step-header">
-                    <span>步骤 {{ index + 1 }}</span>
+                    <span class="step-number">步骤 {{ index + 1 }}</span>
                     <el-button
                       size="small"
                       type="danger"
@@ -175,74 +181,81 @@
                   </div>
                 </template>
 
-                <el-row :gutter="20">
-                  <el-col :span="12">
-                    <el-form-item label="步骤名称">
-                      <el-input
-                        v-model="step.name"
-                        placeholder="请输入步骤名称"
-                      />
-                    </el-form-item>
-                  </el-col>
-                  <el-col :span="12">
-                    <el-form-item label="审批角色">
-                      <el-select
-                        v-model="step.approverRoles"
-                        multiple
-                        placeholder="选择审批角色"
-                        style="width: 100%"
-                      >
-                        <el-option label="管理员" value="admin" />
-                        <el-option label="审核员" value="reviewer" />
-                        <el-option label="普通用户" value="user" />
-                      </el-select>
-                    </el-form-item>
-                  </el-col>
-                </el-row>
+                <div class="step-content">
+                  <el-row :gutter="24">
+                    <el-col :span="12">
+                      <el-form-item label="步骤名称">
+                        <el-input
+                          v-model="step.name"
+                          placeholder="请输入步骤名称"
+                        />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="审批角色">
+                        <el-select
+                          v-model="step.approverRoles"
+                          multiple
+                          placeholder="选择审批角色"
+                          style="width: 100%"
+                        >
+                          <el-option label="管理员" value="admin" />
+                          <el-option label="审核员" value="reviewer" />
+                          <el-option label="普通用户" value="user" />
+                        </el-select>
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
 
-                <el-row :gutter="20">
-                  <el-col :span="8">
-                    <el-form-item label="时间限制(小时)">
-                      <el-input-number
-                        v-model="step.timeLimit"
-                        :min="1"
-                        :max="720"
-                        style="width: 100%"
-                      />
-                    </el-form-item>
-                  </el-col>
-                  <el-col :span="8">
-                    <el-checkbox v-model="step.isRequired"
-                      >必需步骤</el-checkbox
-                    >
-                  </el-col>
-                  <el-col :span="8">
-                    <el-checkbox v-model="step.allowParallel"
-                      >允许并行</el-checkbox
-                    >
-                  </el-col>
-                </el-row>
+                  <el-row :gutter="24">
+                    <el-col :span="8">
+                      <el-form-item label="时间限制(小时)">
+                        <el-input-number
+                          v-model="step.timeLimit"
+                          :min="1"
+                          :max="720"
+                          style="width: 100%"
+                        />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="8">
+                      <el-form-item label=" ">
+                        <el-checkbox v-model="step.isRequired"
+                          >必需步骤</el-checkbox
+                        >
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="8">
+                      <el-form-item label=" ">
+                        <el-checkbox v-model="step.allowParallel"
+                          >允许并行</el-checkbox
+                        >
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
 
-                <el-form-item label="步骤描述">
-                  <el-input
-                    v-model="step.description"
-                    type="textarea"
-                    :rows="2"
-                    placeholder="请输入步骤描述"
-                  />
-                </el-form-item>
+                  <el-form-item label="步骤描述">
+                    <el-input
+                      v-model="step.description"
+                      type="textarea"
+                      :rows="2"
+                      placeholder="请输入步骤描述"
+                    />
+                  </el-form-item>
+                </div>
               </el-card>
             </div>
 
             <el-button
               @click="addTemplateStep"
-              style="width: 100%; margin-top: 16px"
+              class="add-step-btn"
+              type="dashed"
             >
               <el-icon><Plus /></el-icon>
               添加步骤
             </el-button>
           </div>
-        </el-form-item>
+        </div>
       </el-form>
 
       <template #footer>
@@ -252,7 +265,7 @@
     </el-dialog>
 
     <!-- 使用模板对话框 -->
-    <el-dialog v-model="showUseTemplate" title="使用模板创建工作流" width="50%">
+    <el-dialog v-model="showUseTemplate" title="使用模板创建工作流" width="55%">
       <el-form
         ref="useFormRef"
         :model="useForm"
@@ -289,7 +302,7 @@
     </el-dialog>
 
     <!-- 模板预览对话框 -->
-    <el-dialog v-model="showPreview" title="模板预览" width="70%">
+    <el-dialog v-model="showPreview" title="模板预览" width="75%">
       <WorkflowPreview
         v-if="showPreview && previewData"
         :workflow="previewData"
@@ -601,22 +614,99 @@ const getComplexityTagType = (complexity: string) => {
   padding: 40px;
 }
 
+/* 表单样式优化 */
+.template-form {
+  padding: 0;
+}
+
+.form-section {
+  margin-bottom: 32px;
+  padding: 24px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+}
+
+.form-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  margin: 0 0 20px 0;
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 600;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #409eff;
+}
+
 .steps-config {
   width: 100%;
 }
 
 .step-config {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
-.step-config .el-card {
+.step-card {
   border: 1px solid #e4e7ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.step-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .step-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0;
+}
+
+.step-number {
+  font-weight: 600;
+  color: #409eff;
+  font-size: 14px;
+}
+
+.step-content {
+  padding: 8px 0;
+}
+
+.add-step-btn {
+  width: 100%;
+  height: 48px;
+  border: 2px dashed #d9d9d9;
+  border-radius: 6px;
+  color: #666;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.add-step-btn:hover {
+  border-color: #409eff;
+  color: #409eff;
+  background: #f0f8ff;
+}
+
+/* 表单项间距优化 */
+.template-form .el-form-item {
+  margin-bottom: 20px;
+}
+
+.template-form .el-form-item__label {
+  font-weight: 500;
+  color: #333;
+}
+
+/* 步骤配置中的表单项 */
+.step-content .el-form-item {
+  margin-bottom: 16px;
+}
+
+.step-content .el-form-item:last-child {
+  margin-bottom: 0;
 }
 
 /* 响应式设计 */

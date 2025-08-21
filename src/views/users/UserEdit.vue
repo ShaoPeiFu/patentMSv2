@@ -32,14 +32,17 @@
         <el-form
           ref="formRef"
           :model="form"
-          :rules="rules"
+          :rules="dynamicRules"
           label-width="120px"
           @submit.prevent="handleSubmit"
           v-loading="loading"
         >
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="用户名" prop="username">
+              <el-form-item
+                label="用户名"
+                :prop="isAdminEditingOthers ? undefined : 'username'"
+              >
                 <el-input
                   v-model="form.username"
                   placeholder="请输入用户名"
@@ -50,7 +53,10 @@
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="真实姓名" prop="realName">
+              <el-form-item
+                label="真实姓名"
+                :prop="isAdminEditingOthers ? undefined : 'realName'"
+              >
                 <el-input
                   v-model="form.realName"
                   placeholder="请输入真实姓名"
@@ -63,7 +69,10 @@
 
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="邮箱" prop="email">
+              <el-form-item
+                label="邮箱"
+                :prop="isAdminEditingOthers ? undefined : 'email'"
+              >
                 <el-input
                   v-model="form.email"
                   placeholder="请输入邮箱地址"
@@ -73,7 +82,10 @@
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="手机号码" prop="phone">
+              <el-form-item
+                label="手机号码"
+                :prop="isAdminEditingOthers ? undefined : 'phone'"
+              >
                 <el-input
                   v-model="form.phone"
                   placeholder="请输入手机号码"
@@ -149,7 +161,7 @@ import { ElMessage } from "element-plus";
 
 import { ArrowLeft, Check, Refresh, Close } from "@element-plus/icons-vue";
 import type { FormInstance, FormRules } from "element-plus";
-import type { User } from "@/stores/user";
+import type { User } from "@/types/user";
 import {
   canEditUser,
   // canChangeUserPassword,
@@ -197,9 +209,9 @@ const isFieldDisabled = computed(() => {
 
   return {
     username: true, // 用户名始终不可编辑
-    realName: isAdminEditingOthers.value,
-    email: isAdminEditingOthers.value,
-    phone: isAdminEditingOthers.value,
+    realName: isAdminEditingOthers.value, // 管理员编辑其他用户时，真实姓名不可编辑
+    email: isAdminEditingOthers.value, // 管理员编辑其他用户时，邮箱不可编辑
+    phone: isAdminEditingOthers.value, // 管理员编辑其他用户时，手机号不可编辑
     department: !canEditDepartment, // 只有管理员可以编辑审核员和普通用户的部门
     role: !hasPermission(currentUserRole.value, "canEditUserDepartmentAndRole"), // 只有管理员可以编辑角色
   };
@@ -216,27 +228,47 @@ const form = reactive({
   role: "",
 });
 
-// 表单验证规则
-const rules: FormRules = {
-  realName: [
-    { required: true, message: "请输入真实姓名", trigger: "blur" },
-    { min: 2, max: 20, message: "姓名长度在 2 到 20 个字符", trigger: "blur" },
-  ],
-  email: [
-    { required: true, message: "请输入邮箱地址", trigger: "blur" },
-    { type: "email", message: "请输入正确的邮箱地址", trigger: "blur" },
-  ],
-  phone: [
-    { required: true, message: "请输入手机号码", trigger: "blur" },
-    {
-      pattern: /^1[3-9]\d{9}$/,
-      message: "请输入正确的手机号码",
-      trigger: "blur",
-    },
-  ],
-  department: [{ required: true, message: "请选择部门", trigger: "change" }],
-  role: [{ required: true, message: "请选择角色", trigger: "change" }],
-};
+// 动态验证规则（根据权限动态调整）
+const dynamicRules = computed<FormRules>(() => {
+  if (isAdminEditingOthers.value) {
+    // 管理员编辑其他用户：只验证部门和角色
+    return {
+      department: [
+        { required: true, message: "请选择部门", trigger: "change" },
+      ],
+      role: [{ required: true, message: "请选择角色", trigger: "change" }],
+    };
+  } else {
+    // 用户编辑自己：需要所有个人信息
+    return {
+      realName: [
+        { required: true, message: "请输入真实姓名", trigger: "blur" },
+        {
+          min: 2,
+          max: 20,
+          message: "姓名长度在 2 到 20 个字符",
+          trigger: "blur",
+        },
+      ],
+      email: [
+        { required: true, message: "请输入邮箱地址", trigger: "blur" },
+        { type: "email", message: "请输入正确的邮箱地址", trigger: "blur" },
+      ],
+      phone: [
+        { required: true, message: "请输入手机号码", trigger: "blur" },
+        {
+          pattern: /^1[3-9]\d{9}$/,
+          message: "请输入正确的手机号码",
+          trigger: "blur",
+        },
+      ],
+      department: [
+        { required: true, message: "请选择部门", trigger: "change" },
+      ],
+      role: [{ required: true, message: "请选择角色", trigger: "change" }],
+    };
+  }
+});
 
 // 权限检查和表单提交逻辑
 const handleSubmit = async () => {
@@ -248,12 +280,37 @@ const handleSubmit = async () => {
 
   if (!formRef.value) return;
 
+  // 添加调试信息
+  console.log("提交表单，当前权限状态:", {
+    isAdminEditingOthers: isAdminEditingOthers.value,
+    currentUserRole: currentUserRole.value,
+    isEditingSelf: isEditingSelf.value,
+    formData: { ...form },
+    formRef: formRef.value,
+    validationRules: dynamicRules.value,
+  });
+
   try {
-    await formRef.value.validate();
-    // 提交用户更新
+    // 先进行表单验证
+    if (!formRef.value) {
+      ElMessage.error("表单引用不存在");
+      return;
+    }
+
+    // 手动触发表单验证
+    const valid = await formRef.value.validate();
+    if (!valid) {
+      console.log("表单验证失败");
+      return;
+    }
+
+    console.log("表单验证通过，准备提交");
+
+    // 如果验证通过，直接提交
     await submitUserUpdate();
   } catch (error) {
     console.error("表单验证失败:", error);
+    ElMessage.error("表单验证失败，请检查输入");
   }
 };
 
@@ -268,8 +325,19 @@ const submitUserUpdate = async () => {
     // 根据权限控制允许更新的字段
     if (isAdminEditingOthers.value) {
       // 管理员编辑其他用户：只能改部门和角色
-      updateData.department = form.department;
-      updateData.role = form.role as "user" | "admin" | "reviewer";
+      if (form.department && form.department.trim()) {
+        updateData.department = form.department;
+      }
+      if (form.role && form.role.trim()) {
+        updateData.role = form.role as "user" | "admin" | "reviewer";
+      }
+
+      console.log("管理员编辑其他用户 - 表单数据检查:", {
+        department: form.department,
+        role: form.role,
+        departmentValid: form.department && form.department.trim(),
+        roleValid: form.role && form.role.trim(),
+      });
     } else {
       // 用户编辑自己：可以改所有个人信息
       updateData.realName = form.realName;
@@ -288,12 +356,26 @@ const submitUserUpdate = async () => {
       if ((form as any).newPassword && isEditingSelf.value) {
         // 使用changePassword方法，它会验证原密码
         await userStore.changePassword(
+          parseInt(route.params.id as string),
           (form as any).oldPassword,
           (form as any).newPassword
         );
         ElMessage.success("密码修改成功");
       }
     }
+
+    // 检查是否有数据需要更新
+    if (Object.keys(updateData).length === 0) {
+      throw new Error("没有需要更新的数据");
+    }
+
+    // 添加调试信息
+    console.log("准备提交的数据:", {
+      userId: parseInt(route.params.id as string),
+      updateData: JSON.stringify(updateData),
+      updateDataObj: updateData,
+      isAdminEditingOthers: isAdminEditingOthers.value,
+    });
 
     // 调用store的更新用户方法
     await userStore.updateUser(parseInt(route.params.id as string), updateData);
@@ -368,6 +450,14 @@ const fetchUserDetail = async () => {
       phone: foundUser.phone,
       department: foundUser.department,
       role: foundUser.role,
+    });
+
+    // 添加调试信息
+    console.log("表单数据初始化:", {
+      foundUser,
+      form: { ...form },
+      isAdminEditingOthers: isAdminEditingOthers.value,
+      isFieldDisabled: isFieldDisabled.value,
     });
   } catch (error) {
     ElMessage.error("获取用户信息失败");

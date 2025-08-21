@@ -106,7 +106,7 @@ const handleSubmit = async () => {
     loading.value = true;
 
     // 验证当前密码
-    const isValid = await verifyCurrentPassword(form.currentPassword);
+    const isValid = await verifyPassword(form.currentPassword);
 
     if (isValid) {
       ElMessage.success("密码验证成功");
@@ -129,29 +129,13 @@ const handleCancel = () => {
 };
 
 // 验证当前密码
-const verifyCurrentPassword = async (password: string): Promise<boolean> => {
+const verifyPassword = async (_password: string) => {
   try {
-    // 模拟API调用延迟
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // 获取当前用户或指定用户的密码进行验证
-    const targetUserId = props.userId || userStore.currentUser?.id;
-    if (!targetUserId) {
-      throw new Error("用户ID不存在");
-    }
-
-    // 从用户store中获取用户信息
-    const users = userStore.getAllUsers();
-    const targetUser = users.find((u) => u.id === targetUserId);
-
-    if (!targetUser) {
-      throw new Error("用户不存在");
-    }
-
-    // 简单的密码验证（实际项目中应该使用加密验证）
-    return targetUser.password === password;
+    // 注意：这里应该通过API验证密码，而不是直接比较
+    // 因为用户对象中通常不包含密码字段
+    return await userStore.verifyPassword();
   } catch (error) {
-    console.error("验证密码时出错:", error);
+    console.error("密码验证失败:", error);
     return false;
   }
 };

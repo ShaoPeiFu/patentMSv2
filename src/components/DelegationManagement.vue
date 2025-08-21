@@ -108,25 +108,27 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="editDelegation(row)">
-              编辑
-            </el-button>
-            <el-button
-              size="small"
-              :type="row.isActive ? 'warning' : 'success'"
-              @click="toggleDelegationStatus(row)"
-            >
-              {{ row.isActive ? "停用" : "启用" }}
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              @click="deleteDelegation(row)"
-            >
-              删除
-            </el-button>
+            <div class="action-buttons">
+              <el-button size="small" @click="editDelegation(row)">
+                编辑
+              </el-button>
+              <el-button
+                size="small"
+                :type="row.isActive ? 'warning' : 'success'"
+                @click="toggleDelegationStatus(row)"
+              >
+                {{ row.isActive ? "停用" : "启用" }}
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                @click="deleteDelegation(row)"
+              >
+                删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -609,5 +611,21 @@ onMounted(() => {
     flex-direction: column;
     gap: 4px;
   }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.action-buttons .el-button + .el-button {
+  margin-left: 0;
 }
 </style>

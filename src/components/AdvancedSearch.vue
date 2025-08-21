@@ -298,7 +298,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useSearchStore } from "@/stores/search";
-import { usePatentStore } from "@/stores/patent";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Delete, Search, Star, Edit } from "@element-plus/icons-vue";
 import type { SearchCondition, AdvancedSearchParams } from "@/types/search";
@@ -322,7 +321,6 @@ const emit = defineEmits<{
 
 // Store
 const searchStore = useSearchStore();
-const patentStore = usePatentStore();
 
 // 响应式数据
 const showBuilder = ref(props.modelValue);
@@ -540,7 +538,6 @@ const formatDate = (dateString: string) => {
 // 初始化
 onMounted(() => {
   // 更新分类选项
-  searchStore.updateCategoryOptions(patentStore.categories);
 
   // 如果有初始条件，加载它们
   if (props.initialConditions.length > 0) {

@@ -51,23 +51,25 @@
                 <el-option label="发明专利" value="invention" />
                 <el-option label="实用新型" value="utility_model" />
                 <el-option label="外观设计" value="design" />
-                <el-option label="软件专利" value="software" />
+                <el-option label="软件专利" value="invention" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="分类" prop="categoryId">
+            <el-form-item label="技术领域分类" prop="categoryId">
               <el-select
                 v-model="form.categoryId"
-                placeholder="选择专利分类"
+                placeholder="请选择技术领域分类（可选）"
                 style="width: 100%"
+                clearable
               >
-                <el-option
-                  v-for="category in categories"
-                  :key="category.id"
-                  :label="category.name"
-                  :value="category.id"
-                />
+                <el-option label="计算机软件" :value="4" />
+                <el-option label="生物技术" :value="5" />
+                <el-option label="化学" :value="6" />
+                <el-option label="机械" :value="7" />
+                <el-option label="电子" :value="8" />
+                <el-option label="通信" :value="9" />
+                <el-option label="其他" :value="10" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -134,20 +136,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
-import { usePatentStore } from "@/stores/patent";
+import { patentApplicationAPI } from "@/utils/api";
 import type { PatentType } from "@/types/patent";
 
 const router = useRouter();
-const patentStore = usePatentStore();
 const formRef = ref<FormInstance>();
 const loading = ref(false);
 
 // 获取分类数据
-const categories = computed(() => patentStore.categories);
 
 const form = reactive({
   title: "",
@@ -168,7 +168,7 @@ const rules: FormRules = {
   patentNumber: [{ required: true, message: "请输入专利号", trigger: "blur" }],
   type: [{ required: true, message: "请选择专利类型", trigger: "change" }],
   categoryId: [
-    { required: true, message: "请选择专利分类", trigger: "change" },
+    { required: false, message: "请选择专利分类", trigger: "change" },
   ],
 };
 
@@ -187,7 +187,7 @@ const handleSubmit = async () => {
       applicationNumber: form.applicationNumber,
       applicationDate: form.applicationDate,
       type: form.type as PatentType,
-      categoryId: form.categoryId || 1,
+      categoryId: form.categoryId, // 移除硬编码的默认值
       applicants: form.applicants,
       inventors: form.inventors,
       technicalField: form.technicalField,
@@ -199,7 +199,7 @@ const handleSubmit = async () => {
     };
 
     // 提交专利申请
-    // const newApplication = await patentStore.submitApplication(applicationData);
+    await patentApplicationAPI.submitApplication(applicationData);
 
     ElMessage.success("专利申请提交成功，等待审核");
     // 跳转到专利申请列表或控制台
@@ -215,7 +215,6 @@ const handleSubmit = async () => {
 // 页面加载时获取分类数据
 onMounted(async () => {
   try {
-    await patentStore.fetchCategories();
   } catch (error) {
     console.error("获取分类数据失败:", error);
   }

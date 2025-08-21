@@ -1,35 +1,58 @@
 // 费用类型
-export type FeeType = 
-  | 'application'      // 申请费
-  | 'examination'      // 审查费
-  | 'maintenance'      // 年费
-  | 'renewal'          // 续展费
-  | 'priority'         // 优先权费
-  | 'extension'        // 延期费
-  | 'correction'       // 更正费
-  | 'other';           // 其他费用
+export type FeeType =
+  | "application" // 申请费
+  | "examination" // 审查费
+  | "maintenance" // 年费
+  | "renewal" // 续展费
+  | "priority" // 优先权费
+  | "extension" // 延期费
+  | "correction" // 更正费
+  | "other"; // 其他费用
+
+// 基础费用接口
+export interface Fee {
+  id: number;
+  title: string;
+  amount: number;
+  categoryId: number;
+  dueDate: string;
+  description?: string;
+  status: FeeStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 费用分类接口
+export interface FeeCategory {
+  id: number;
+  name: string;
+  description?: string;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // 费用状态
-export type FeeStatus = 
-  | 'pending'          // 待缴费
-  | 'paid'             // 已缴费
-  | 'overdue'          // 逾期
-  | 'waived'           // 减免
-  | 'refunded';        // 已退款
+export type FeeStatus =
+  | "pending" // 待缴费
+  | "paid" // 已缴费
+  | "overdue" // 逾期
+  | "waived" // 减免
+  | "refunded"; // 已退款
 
 // 缴费提醒级别
-export type ReminderLevel = 
-  | 'info'             // 信息提醒
-  | 'warning'          // 警告提醒
-  | 'urgent'           // 紧急提醒
-  | 'critical';        // 严重逾期
+export type ReminderLevel =
+  | "info" // 信息提醒
+  | "warning" // 警告提醒
+  | "urgent" // 紧急提醒
+  | "critical"; // 严重逾期
 
 // 预算类型
-export type BudgetType = 
-  | 'monthly'          // 月度预算
-  | 'quarterly'        // 季度预算
-  | 'yearly'           // 年度预算
-  | 'project';         // 项目预算
+export type BudgetType =
+  | "monthly" // 月度预算
+  | "quarterly" // 季度预算
+  | "yearly" // 年度预算
+  | "project"; // 项目预算
 
 // 费用记录
 export interface FeeRecord {
@@ -38,6 +61,7 @@ export interface FeeRecord {
   patentNumber: string;
   patentTitle: string;
   feeType: FeeType;
+  type: string; // 兼容后端字段名
   amount: number;
   currency: string;
   dueDate: string;
@@ -47,6 +71,7 @@ export interface FeeRecord {
   receiptNumber?: string;
   paymentMethod?: string;
   notes?: string;
+  categoryId?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -108,7 +133,7 @@ export interface ReconciliationRecord {
   actualAmount: number;
   difference: number;
   reconciliationDate: string;
-  status: 'matched' | 'unmatched' | 'pending';
+  status: "matched" | "unmatched" | "pending";
   notes?: string;
   createdAt: string;
 }
@@ -123,14 +148,20 @@ export interface FeeStatistics {
   paidAmount: number;
   pendingAmount: number;
   overdueAmount: number;
-  byType: Record<FeeType, {
-    count: number;
-    amount: number;
-  }>;
-  byStatus: Record<FeeStatus, {
-    count: number;
-    amount: number;
-  }>;
+  byType: Record<
+    FeeType,
+    {
+      count: number;
+      amount: number;
+    }
+  >;
+  byStatus: Record<
+    FeeStatus,
+    {
+      count: number;
+      amount: number;
+    }
+  >;
   monthlyTrend: Array<{
     month: string;
     total: number;
@@ -157,11 +188,11 @@ export interface FeeQueryCondition {
 
 // 费用导出选项
 export interface FeeExportOptions {
-  format: 'excel' | 'csv' | 'pdf';
+  format: "excel" | "csv" | "pdf";
   includeDetails: boolean;
   dateRange?: {
     start: string;
     end: string;
   };
   filters?: FeeQueryCondition;
-} 
+}

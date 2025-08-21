@@ -430,34 +430,35 @@ const goHome = () => {
 }
 
 .modern-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   transition: all 0.3s ease;
 }
 
 .modern-input :deep(.el-input__wrapper:hover) {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .modern-input :deep(.el-input__wrapper.is-focus) {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 1);
   border-color: #667eea;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .modern-input :deep(.el-input__inner) {
-  color: white;
+  color: #1d1d1f;
+  font-weight: 500;
 }
 
 .modern-input :deep(.el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(29, 29, 31, 0.6);
 }
 
 .modern-input :deep(.el-input__prefix) {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.8);
 }
 
 .form-options {
@@ -468,7 +469,7 @@ const goHome = () => {
 }
 
 .modern-checkbox :deep(.el-checkbox__label) {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.9);
 }
 
 .modern-checkbox :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
@@ -477,13 +478,13 @@ const goHome = () => {
 }
 
 .forgot-link {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.8);
   text-decoration: none;
   transition: all 0.3s ease;
 }
 
 .forgot-link:hover {
-  color: white;
+  color: #1d1d1f;
   transform: translateY(-1px);
 }
 
@@ -539,18 +540,18 @@ const goHome = () => {
   align-items: center;
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(29, 29, 31, 0.2);
   position: relative;
   z-index: 1;
 }
 
 .footer-text {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.8);
   font-size: 14px;
 }
 
 .footer-link {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.8);
   text-decoration: none;
   display: flex;
   align-items: center;
@@ -560,7 +561,7 @@ const goHome = () => {
 }
 
 .footer-link:hover {
-  color: white;
+  color: #1d1d1f;
   transform: translateY(-1px);
 }
 

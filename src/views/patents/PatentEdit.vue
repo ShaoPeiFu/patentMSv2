@@ -175,7 +175,7 @@
               {{ formatFileSize(row.fileSize) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="150">
+          <el-table-column label="操作" width="180">
             <template #default="{ row }">
               <el-button size="small" @click="downloadDocument(row)">
                 下载
@@ -266,14 +266,14 @@
           </el-select>
         </el-form-item>
         <el-form-item label="选择文件" prop="file">
-          <el-upload
-            ref="uploadRef"
+          <AdvancedFileUpload
+            v-model="uploadedFiles"
+            :multiple="false"
+            :accept="'.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png'"
+            :max-file-size="50"
             :auto-upload="false"
-            :on-change="handleFileChange"
-            :limit="1"
-          >
-            <el-button type="primary">选择文件</el-button>
-          </el-upload>
+            @file-uploaded="handleFileUploaded"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -368,6 +368,8 @@ import {
 import type { PatentDocument, PatentFee } from "@/types/patent";
 import type { FormInstance, FormRules } from "element-plus";
 import { hasPermission } from "@/utils/permissions";
+import { formatDate } from "@/utils/dateUtils";
+import AdvancedFileUpload from "@/components/AdvancedFileUpload.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -411,6 +413,9 @@ const form = reactive({
 // 文档和费用数据
 const documents = ref<PatentDocument[]>([]);
 const fees = ref<PatentFee[]>([]);
+
+// 上传的文件
+const uploadedFiles = ref<any[]>([]);
 
 // 上传表单
 const uploadForm = reactive({
@@ -465,7 +470,7 @@ const fetchPatentDetail = async () => {
     Object.assign(form, {
       title: foundPatent.title,
       patentNumber: foundPatent.patentNumber,
-      applicationNumber: foundPatent.applicationNumber,
+
       applicationDate: foundPatent.applicationDate,
       type: foundPatent.type,
       status: foundPatent.status,
@@ -477,8 +482,8 @@ const fetchPatentDetail = async () => {
     });
 
     // 加载文档和费用
-    documents.value = foundPatent.documents;
-    fees.value = foundPatent.fees;
+    documents.value = foundPatent.documents || [];
+    fees.value = foundPatent.fees || [];
   } else {
     ElMessage.error("专利不存在");
   }
@@ -489,6 +494,21 @@ const savePatent = async () => {
   if (!formRef.value) return;
 
   try {
+    // 检查用户认证状态
+    const userStore = useUserStore();
+    if (!userStore.isLoggedIn) {
+      console.log("⚠️ 用户未登录，尝试恢复认证状态...");
+
+      // 尝试恢复用户认证状态
+      if (userStore.forceRestoreUser()) {
+        console.log("✅ 用户认证状态已恢复");
+      } else {
+        ElMessage.error("用户认证失败，请重新登录");
+        router.push("/login");
+        return;
+      }
+    }
+
     await formRef.value.validate();
     saving.value = true;
 
@@ -496,7 +516,7 @@ const savePatent = async () => {
       title: form.title,
       description: form.description,
       patentNumber: form.patentNumber,
-      applicationNumber: form.applicationNumber,
+
       applicationDate: form.applicationDate,
       type: form.type as any,
       status: form.status as any,
@@ -506,15 +526,15 @@ const savePatent = async () => {
       technicalField: form.technicalField,
       keywords: form.keywords,
       abstract: form.description,
-      claims: [],
+      claims: "",
       documents: documents.value,
       fees: fees.value,
       timeline: [],
       legalStatus: form.status,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      createdBy: 1,
-      updatedBy: 1,
+      createdBy: userStore.currentUser?.id || 1,
+      updatedBy: userStore.currentUser?.id || 1,
     };
 
     if (isEdit.value) {
@@ -527,24 +547,31 @@ const savePatent = async () => {
         type: "patent_review",
         title: "编辑专利",
         description: patentData.title,
-        userId: 1,
-        userName: "系统管理员",
+        userId: userStore.currentUser?.id || 1,
+        userName: userStore.currentUser?.realName || "系统管理员",
         targetId: patentId,
         targetName: patentData.title,
+        timestamp: new Date().toISOString(),
         status: "success",
         statusText: "已更新",
       });
 
       ElMessage.success("专利更新成功");
     } else {
-      await patentStore.addPatent(patentData);
+      await patentStore.addPatent(patentData as any);
       ElMessage.success("专利添加成功");
     }
 
     router.push("/dashboard/patents");
-  } catch (error) {
+  } catch (error: any) {
     ElMessage.error("保存失败");
     console.error("保存失败:", error);
+
+    // 如果是认证错误，跳转到登录页
+    if (error.response?.status === 401) {
+      ElMessage.error("登录已过期，请重新登录");
+      router.push("/login");
+    }
   } finally {
     saving.value = false;
   }
@@ -555,25 +582,28 @@ const saveDraft = () => {
   ElMessage.success("草稿已保存");
 };
 
-// 文件上传处理
-const handleFileChange = (file: { raw: File }) => {
-  uploadForm.file = file.raw;
+// 处理文件上传完成
+const handleFileUploaded = (file: any) => {
+  // 文件已通过AdvancedFileUpload组件上传完成
+  // 这里可以处理上传成功后的逻辑
+  console.log("文件上传完成:", file);
 };
 
 // 上传文档
 const uploadDocument = () => {
-  if (!uploadForm.name || !uploadForm.file) {
+  if (!uploadForm.name || uploadedFiles.value.length === 0) {
     ElMessage.warning("请填写文档信息并选择文件");
     return;
   }
 
+  const uploadedFile = uploadedFiles.value[0];
   const newDocument: PatentDocument = {
     id: Date.now(),
     patentId: isEdit.value ? parseInt(route.params.id as string) : 0,
     name: uploadForm.name,
     type: uploadForm.type as any,
-    fileUrl: URL.createObjectURL(uploadForm.file),
-    fileSize: uploadForm.file.size,
+    fileUrl: uploadedFile.url || URL.createObjectURL(uploadedFile.raw),
+    fileSize: uploadedFile.size,
     uploadedAt: new Date().toISOString(),
     uploadedBy: 1,
   };
@@ -583,7 +613,7 @@ const uploadDocument = () => {
   // 重置表单
   uploadForm.name = "";
   uploadForm.type = "application";
-  uploadForm.file = null;
+  uploadedFiles.value = [];
   showUploadDialog.value = false;
 
   ElMessage.success("文档上传成功");
@@ -749,10 +779,6 @@ const formatFileSize = (bytes: number) => {
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-};
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString("zh-CN");
 };
 
 onMounted(() => {

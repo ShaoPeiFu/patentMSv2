@@ -30,20 +30,26 @@
           <el-descriptions-item label="专利号">
             {{ patent.patentNumber }}
           </el-descriptions-item>
-          <el-descriptions-item label="申请号">
-            {{ patent.applicationNumber }}
-          </el-descriptions-item>
+
           <el-descriptions-item label="申请日期">
-            {{ patent.applicationDate }}
+            {{ formatDate(patent.applicationDate) }}
           </el-descriptions-item>
           <el-descriptions-item label="公开日期">
-            {{ patent.publicationDate || "未公开" }}
+            {{
+              patent.publicationDate
+                ? formatDate(patent.publicationDate)
+                : "未公开"
+            }}
           </el-descriptions-item>
           <el-descriptions-item label="授权日期">
-            {{ patent.grantDate || "未授权" }}
+            {{ patent.grantDate ? formatDate(patent.grantDate) : "未授权" }}
           </el-descriptions-item>
           <el-descriptions-item label="到期日期">
-            {{ patent.expirationDate || "未设置" }}
+            {{
+              patent.expirationDate
+                ? formatDate(patent.expirationDate)
+                : "未设置"
+            }}
           </el-descriptions-item>
           <el-descriptions-item label="专利类型">
             <el-tag>{{ getTypeText(patent.type) }}</el-tag>
@@ -52,10 +58,10 @@
             {{ patent.technicalField }}
           </el-descriptions-item>
           <el-descriptions-item label="申请人">
-            {{ patent.applicants.join(", ") }}
+            {{ formatArrayField(patent.applicants) }}
           </el-descriptions-item>
           <el-descriptions-item label="发明人">
-            {{ patent.inventors.join(", ") }}
+            {{ formatArrayField(patent.inventors) }}
           </el-descriptions-item>
         </el-descriptions>
       </el-card>
@@ -78,7 +84,7 @@
             </template>
             <div class="claims-list">
               <div
-                v-for="(claim, index) in patent.claims"
+                v-for="(claim, index) in getClaimsArray(patent.claims)"
                 :key="index"
                 class="claim-item"
               >
@@ -97,7 +103,7 @@
         </template>
         <div class="keywords-list">
           <el-tag
-            v-for="keyword in patent.keywords"
+            v-for="keyword in getKeywordsArray(patent.keywords)"
             :key="keyword"
             class="keyword-tag"
           >
@@ -141,7 +147,7 @@
                 type="primary"
                 size="small"
                 @click="downloadAllDocuments"
-                :disabled="!patent.documents.length"
+                :disabled="!patent.documents?.length"
               >
                 <el-icon><Download /></el-icon>
                 批量下载
@@ -170,9 +176,17 @@
                 {{ formatDate(row.uploadedAt) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="200">
+            <el-table-column label="操作" width="250">
               <template #default="{ row }">
                 <div class="action-buttons">
+                  <el-button
+                    size="small"
+                    type="info"
+                    @click="previewDocument(row)"
+                  >
+                    <el-icon><View /></el-icon>
+                    预览
+                  </el-button>
                   <el-button
                     size="small"
                     type="primary"
@@ -195,6 +209,29 @@
           </el-table>
         </div>
       </el-card>
+
+      <!-- 文件预览对话框 -->
+      <el-dialog
+        v-model="showPreviewDialog"
+        title="文档预览"
+        width="80%"
+        :before-close="handlePreviewDialogClose"
+      >
+        <div class="preview-dialog-content">
+          <FilePreview
+            v-if="previewFile"
+            :file="{
+              uid: previewFile.id.toString(),
+              name: previewFile.name,
+              size: previewFile.fileSize,
+              url: previewFile.fileUrl,
+              type: previewFile.type,
+            }"
+            :file-id="previewFile.id.toString()"
+            @close="showPreviewDialog = false"
+          />
+        </div>
+      </el-dialog>
 
       <!-- 文件上传对话框 -->
       <el-dialog
@@ -290,18 +327,6 @@
         <template #header>
           <h3>专利时间线</h3>
         </template>
-
-        <el-timeline>
-          <el-timeline-item
-            v-for="event in patent.timeline"
-            :key="event.id"
-            :timestamp="formatDate(event.date)"
-            :type="getTimelineItemType(event.type)"
-          >
-            <h4>{{ event.title }}</h4>
-            <p>{{ event.description }}</p>
-          </el-timeline-item>
-        </el-timeline>
       </el-card>
     </div>
 
@@ -312,7 +337,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { usePatentStore } from "@/stores/patent";
 // import { useDocumentStore } from "@/stores/document";
@@ -324,7 +349,9 @@ import {
   downloadMultipleDocuments,
 } from "@/utils/download";
 import FileUpload from "@/components/FileUpload.vue";
+import FilePreview from "@/components/FilePreview.vue";
 import DocumentVersionManager from "@/components/DocumentVersionManager.vue";
+import { formatDate } from "@/utils/dateUtils";
 
 const route = useRoute();
 const router = useRouter();
@@ -343,6 +370,10 @@ const uploadForm = ref({
   name: "",
   files: [],
 });
+
+// 文件预览相关
+const showPreviewDialog = ref(false);
+const previewFile = ref<PatentDocument | null>(null);
 
 // 获取专利详情
 const fetchPatentDetail = async () => {
@@ -396,7 +427,7 @@ const downloadDocument = async (document: PatentDocument) => {
 
 // 批量下载文档
 const downloadAllDocuments = async () => {
-  if (!patent.value?.documents.length) {
+  if (!patent.value?.documents?.length) {
     ElMessage.warning("没有可下载的文档");
     return;
   }
@@ -420,6 +451,18 @@ const downloadAllDocuments = async () => {
   }
 };
 
+// 预览文档
+const previewDocument = (document: PatentDocument) => {
+  previewFile.value = document;
+  showPreviewDialog.value = true;
+};
+
+// 处理预览对话框关闭
+const handlePreviewDialogClose = () => {
+  showPreviewDialog.value = false;
+  previewFile.value = null;
+};
+
 // 删除文档
 const deleteDocument = async (document: PatentDocument) => {
   try {
@@ -434,24 +477,21 @@ const deleteDocument = async (document: PatentDocument) => {
     );
 
     // 从专利文档列表中移除
-    if (patent.value) {
+    if (patent.value?.documents) {
       const index = patent.value.documents.findIndex(
         (d) => d.id === document.id
       );
       if (index !== -1) {
         patent.value.documents.splice(index, 1);
 
-        // 保存到localStorage
-        const patents = JSON.parse(localStorage.getItem("patents") || "[]");
-        const patentIndex = patents.findIndex(
-          (p: any) => p.id === patent.value?.id
-        );
-        if (patentIndex !== -1) {
-          patents[patentIndex] = patent.value;
-          localStorage.setItem("patents", JSON.stringify(patents));
+        // 通过API删除文档
+        try {
+          await patentStore.deletePatentDocument(patent.value.id, document.id);
+          ElMessage.success("文档删除成功");
+        } catch (error) {
+          console.error("删除文档失败:", error);
+          ElMessage.error("删除文档失败");
         }
-
-        ElMessage.success("文档删除成功");
       }
     }
   } catch (error) {
@@ -510,41 +550,31 @@ const handleUploadSubmit = async () => {
 
     console.log("最终文件URL:", fileUrl);
 
-    // 创建新的文档记录
-    const newDocument: PatentDocument = {
-      id: Date.now(),
-      patentId: patent.value?.id || 0,
-      name: uploadForm.value.name,
-      type: uploadForm.value.type as
-        | "application"
-        | "publication"
-        | "grant"
-        | "amendment"
-        | "other",
-      fileUrl: fileUrl,
-      fileSize: uploadedFile.size || 0,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: 1, // 当前用户ID
-    };
-
-    console.log("创建的文档记录:", newDocument);
-
     // 添加到专利文档列表
     if (patent.value) {
-      patent.value.documents.push(newDocument);
+      // 通过API创建文档
+      try {
+        const newDocument = await patentStore.createPatentDocument(
+          patent.value.id,
+          {
+            name: uploadForm.value.name,
+            type: uploadForm.value.type,
+            fileUrl: fileUrl,
+            fileSize: uploadedFile.size || 0,
+          }
+        );
 
-      // 保存到localStorage
-      const patents = JSON.parse(localStorage.getItem("patents") || "[]");
-      const patentIndex = patents.findIndex(
-        (p: any) => p.id === patent.value?.id
-      );
-      if (patentIndex !== -1) {
-        patents[patentIndex] = patent.value;
-        localStorage.setItem("patents", JSON.stringify(patents));
+        // 更新本地专利数据
+        if (patent.value.documents) {
+          patent.value.documents.push(newDocument);
+        }
+        ElMessage.success("文档上传成功");
+      } catch (error) {
+        console.error("创建文档失败:", error);
+        ElMessage.error("文档上传失败");
       }
     }
 
-    ElMessage.success("文档上传成功");
     showUploadDialog.value = false;
     uploadForm.value = {
       type: "",
@@ -561,7 +591,7 @@ const handleUploadSubmit = async () => {
 
 // 测试下载功能
 const testDownload = () => {
-  if (!patent.value?.documents.length) {
+  if (!patent.value?.documents?.length) {
     ElMessage.warning("没有可下载的文档");
     return;
   }
@@ -663,18 +693,6 @@ const getFeeStatusText = (status: string) => {
   return texts[status] || status;
 };
 
-const getTimelineItemType = (type: string) => {
-  const types: Record<string, string> = {
-    application: "primary",
-    publication: "success",
-    examination: "warning",
-    grant: "success",
-    maintenance: "info",
-    amendment: "warning",
-  };
-  return types[type] || "info";
-};
-
 const formatFileSize = (bytes: number) => {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -683,13 +701,72 @@ const formatFileSize = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 };
 
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString("zh-CN");
+// 格式化数组字段（处理JSON字符串或数组）
+const formatArrayField = (field: any): string => {
+  if (!field) return "未指定";
+
+  try {
+    if (typeof field === "string") {
+      const parsed = JSON.parse(field);
+      return Array.isArray(parsed) ? parsed.join(", ") : String(parsed);
+    } else if (Array.isArray(field)) {
+      return field.join(", ");
+    } else {
+      return String(field);
+    }
+  } catch (error) {
+    return String(field);
+  }
+};
+
+// 获取关键词数组（处理JSON字符串或数组）
+const getKeywordsArray = (field: any): string[] => {
+  if (!field) return [];
+
+  try {
+    if (typeof field === "string") {
+      const parsed = JSON.parse(field);
+      return Array.isArray(parsed) ? parsed : [];
+    } else if (Array.isArray(field)) {
+      return field;
+    } else {
+      return [];
+    }
+  } catch (error) {
+    return [];
+  }
+};
+
+// 获取权利要求数组（处理JSON字符串或数组）
+const getClaimsArray = (field: any): string[] => {
+  if (!field) return [];
+
+  try {
+    if (typeof field === "string") {
+      const parsed = JSON.parse(field);
+      return Array.isArray(parsed) ? parsed : [];
+    } else if (Array.isArray(field)) {
+      return field;
+    } else {
+      return [];
+    }
+  } catch (error) {
+    return [];
+  }
 };
 
 onMounted(() => {
   patentId.value = route.params.id as string;
   fetchPatentDetail();
+});
+
+// 组件卸载前清理
+onBeforeUnmount(() => {
+  // 清理响应式数据
+  patent.value = null;
+  patentId.value = "";
+  showUploadDialog.value = false;
+  uploading.value = false;
 });
 </script>
 

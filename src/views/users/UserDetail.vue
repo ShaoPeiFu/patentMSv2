@@ -80,24 +80,43 @@
         <template #header>
           <div class="card-header">
             <span>最近活动</span>
+            <el-button
+              size="small"
+              @click="refreshActivities"
+              :loading="loadingActivities"
+            >
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
           </div>
         </template>
 
         <div class="activity-list">
+          <div v-if="loadingActivities" class="loading-state">
+            <el-skeleton :rows="4" animated />
+          </div>
+          <div v-else-if="userActivities.length === 0" class="no-activities">
+            <el-empty description="暂无活动记录" />
+          </div>
           <div
+            v-else
             class="activity-item"
             v-for="activity in userActivities"
             :key="activity.id"
           >
             <div class="activity-icon" :class="activity.type">
-              <el-icon><component :is="activity.icon" /></el-icon>
+              <el-icon
+                ><component :is="getActivityIcon(activity.type)"
+              /></el-icon>
             </div>
             <div class="activity-content">
               <div class="activity-title">{{ activity.title }}</div>
-              <div class="activity-time">{{ formatTime(activity.time) }}</div>
+              <div class="activity-time">
+                {{ formatTime(activity.timestamp) }}
+              </div>
             </div>
             <div class="activity-status" :class="activity.status">
-              {{ activity.statusText }}
+              {{ getStatusText(activity.status) }}
             </div>
           </div>
         </div>
@@ -111,8 +130,19 @@ import { ref, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { ElMessage } from "element-plus";
-import { ArrowLeft, Edit } from "@element-plus/icons-vue";
-import type { User } from "@/stores/user";
+import {
+  ArrowLeft,
+  Edit,
+  Refresh,
+  UserFilled,
+  Lock,
+  Bell,
+  Setting,
+  View,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+} from "@element-plus/icons-vue";
+import type { User } from "@/types/user";
 import { getRoleTagType } from "@/utils/tagTypes";
 
 const router = useRouter();
@@ -122,46 +152,10 @@ const userStore = useUserStore();
 // 响应式数据
 const user = ref<User | null>(null);
 const loading = ref(false);
+const loadingActivities = ref(false);
 
 // 用户活动记录
-const userActivities = ref([
-  {
-    id: 1,
-    icon: "UserFilled",
-    title: "用户登录系统",
-    time: new Date(Date.now() - 1000 * 60 * 30),
-    type: "login",
-    status: "success",
-    statusText: "成功",
-  },
-  {
-    id: 2,
-    icon: "Lock",
-    title: "修改密码",
-    time: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    type: "password",
-    status: "success",
-    statusText: "已修改",
-  },
-  {
-    id: 3,
-    icon: "Bell",
-    title: "查看通知",
-    time: new Date(Date.now() - 1000 * 60 * 60 * 4),
-    type: "notification",
-    status: "info",
-    statusText: "已查看",
-  },
-  {
-    id: 4,
-    icon: "Setting",
-    title: "更新个人信息",
-    time: new Date(Date.now() - 1000 * 60 * 60 * 6),
-    type: "profile",
-    status: "success",
-    statusText: "已更新",
-  },
-]);
+const userActivities = ref<any[]>([]);
 
 // 方法
 const handleEdit = () => {
@@ -176,8 +170,6 @@ const getRoleText = (role?: string) => {
   };
   return texts[role || ""] || role || "未知";
 };
-
-// 使用统一的getRoleTagType函数
 
 const getDepartmentText = (department?: string) => {
   const texts: Record<string, string> = {
@@ -194,8 +186,9 @@ const formatDate = (dateString?: string) => {
   return new Date(dateString).toLocaleString("zh-CN");
 };
 
-const formatTime = (time: Date) => {
+const formatTime = (timestamp: string) => {
   const now = new Date();
+  const time = new Date(timestamp);
   const diff = now.getTime() - time.getTime();
   const minutes = Math.floor(diff / (1000 * 60));
   const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -208,6 +201,90 @@ const formatTime = (time: Date) => {
   } else {
     return `${days}天前`;
   }
+};
+
+// 获取活动图标
+const getActivityIcon = (type: string) => {
+  const iconMap: Record<string, any> = {
+    login: UserFilled,
+    password: Lock,
+    notification: Bell,
+    profile: Setting,
+    view: View,
+    edit: EditIcon,
+    delete: DeleteIcon,
+  };
+  return iconMap[type] || UserFilled;
+};
+
+// 获取状态文本
+const getStatusText = (status: string) => {
+  const statusMap: Record<string, string> = {
+    success: "成功",
+    failed: "失败",
+    pending: "进行中",
+    completed: "已完成",
+    viewed: "已查看",
+    modified: "已修改",
+    updated: "已更新",
+    deleted: "已删除",
+  };
+  return statusMap[status] || status;
+};
+
+// 获取用户活动记录
+const fetchUserActivities = async () => {
+  if (!user.value?.id) return;
+
+  loadingActivities.value = true;
+  try {
+    // 获取认证令牌
+    const token = userStore.token || localStorage.getItem("token");
+
+    if (!token) {
+      console.error("❌ 未找到认证令牌");
+      userActivities.value = [];
+      ElMessage.error("请先登录");
+      return;
+    }
+
+    // 调用API获取用户活动记录
+    const response = await fetch(`/api/users/${user.value.id}/activities`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      userActivities.value = data.activities || [];
+      console.log(
+        "✅ 成功获取用户活动记录:",
+        data.activities?.length || 0,
+        "条"
+      );
+    } else {
+      console.error(
+        "❌ 获取用户活动记录失败:",
+        response.status,
+        response.statusText
+      );
+      userActivities.value = [];
+      ElMessage.warning("获取活动记录失败，请稍后重试");
+    }
+  } catch (error) {
+    console.error("❌ 获取用户活动记录异常:", error);
+    userActivities.value = [];
+    ElMessage.error("网络错误，无法获取活动记录");
+  } finally {
+    loadingActivities.value = false;
+  }
+};
+
+// 刷新活动记录
+const refreshActivities = () => {
+  fetchUserActivities();
 };
 
 // 获取用户信息
@@ -232,6 +309,9 @@ const fetchUserDetail = async () => {
     }
 
     user.value = foundUser;
+
+    // 获取用户活动记录
+    await fetchUserActivities();
   } catch (error) {
     ElMessage.error("获取用户信息失败");
     router.push("/dashboard/users");
@@ -300,6 +380,9 @@ watch(
 }
 
 .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-weight: 600;
   color: #2c3e50;
 }
@@ -332,6 +415,15 @@ watch(
 .activity-list {
   max-height: 400px;
   overflow-y: auto;
+}
+
+.loading-state {
+  padding: 20px;
+}
+
+.no-activities {
+  text-align: center;
+  padding: 40px 0;
 }
 
 .activity-item {
@@ -380,6 +472,18 @@ watch(
   background: linear-gradient(135deg, #909399, #c0c4cc);
 }
 
+.activity-icon.view {
+  background: linear-gradient(135deg, #67c23a, #85ce61);
+}
+
+.activity-icon.edit {
+  background: linear-gradient(135deg, #409eff, #66b1ff);
+}
+
+.activity-icon.delete {
+  background: linear-gradient(135deg, #f56c6c, #f78989);
+}
+
 .activity-content {
   flex: 1;
 }
@@ -407,9 +511,39 @@ watch(
   color: #67c23a;
 }
 
-.activity-status.info {
+.activity-status.failed {
+  background: rgba(245, 108, 108, 0.1);
+  color: #f56c6c;
+}
+
+.activity-status.pending {
+  background: rgba(230, 162, 60, 0.1);
+  color: #e6a23c;
+}
+
+.activity-status.completed {
+  background: rgba(103, 194, 58, 0.1);
+  color: #67c23a;
+}
+
+.activity-status.viewed {
   background: rgba(64, 158, 255, 0.1);
   color: #409eff;
+}
+
+.activity-status.modified {
+  background: rgba(103, 194, 58, 0.1);
+  color: #67c23a;
+}
+
+.activity-status.updated {
+  background: rgba(103, 194, 58, 0.1);
+  color: #67c23a;
+}
+
+.activity-status.deleted {
+  background: rgba(245, 108, 108, 0.1);
+  color: #f56c6c;
 }
 
 /* 响应式设计 */
@@ -429,6 +563,12 @@ watch(
   .header-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .card-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
   }
 }
 </style>

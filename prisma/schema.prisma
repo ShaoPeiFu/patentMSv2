@@ -1,0 +1,766 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                            Int                   @id @default(autoincrement())
+  username                      String                @unique
+  email                         String                @unique
+  realName                      String
+  phone                         String?
+  department                    String
+  role                          String                @default("user")
+  password                      String
+  avatar                        String?
+  createdAt                     DateTime              @default(now())
+  lastLoginAt                   DateTime?
+  updatedAt                     DateTime              @updatedAt
+  activities                    Activity[]
+  activityLogs                  ActivityLog[]         @relation("ActivityLogger")
+  delegationsReceived           ApprovalDelegation[]  @relation("Delegate")
+  delegationsGiven              ApprovalDelegation[]  @relation("Delegator")
+  escalationsTo                 ApprovalEscalation[]  @relation("EscalationTo")
+  escalationsFrom               ApprovalEscalation[]  @relation("EscalationFrom")
+  approvalProcesses             ApprovalProcess[]     @relation("ProcessStarter")
+  approvalWorkflows             ApprovalWorkflow[]    @relation("WorkflowCreator")
+  backupRecords                 BackupRecord[]        @relation("UserBackupRecords")
+  comments                      Comment[]
+  documentAccessGranted         DocumentAccess[]      @relation("AccessGranter")
+  documentAccessReceived        DocumentAccess[]      @relation("AccessGrantee")
+  documentTemplates             DocumentTemplate[]    @relation("TemplateCreator")
+  documentVersions              DocumentVersion[]     @relation("DocumentVersionCreator")
+  electronicSignatures          ElectronicSignature[] @relation("SignatureCreator")
+  meetings                      MeetingParticipant[]
+  organizedMeetings             Meeting[]             @relation("MeetingOrganizer")
+  patentDocuments               PatentDocument[]
+  patentEvaluations             PatentEvaluation[]    @relation("PatentEvaluator")
+  patents                       Patent[]
+  securityEventLogs             SecurityEventLog[]    @relation("UserSecurityEvents")
+  securitySettings              SecuritySettings[]    @relation("UserSecuritySettings")
+  serviceEvaluationsAsEvaluator ServiceEvaluation[]   @relation("ServiceEvaluator")
+  tasks                         Task[]                 @relation("TaskCreator")
+  assignedGeneralTasks          Task[]                 @relation("TaskAssignee")
+  workflowTemplates             WorkflowTemplate[]    @relation("WorkflowTemplateCreator")
+  collaborationChannels         CollaborationChannel[] @relation("ChannelCreator")
+  channelMemberships            CollaborationChannelMember[]
+  collaborationMessages         CollaborationMessage[]
+  assignedTasks                 CollaborationTask[]   @relation("TaskAssignee")
+  createdTasks                  CollaborationTask[]   @relation("TaskCreator")
+
+  @@map("users")
+}
+
+model PatentCategory {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?
+  parentId    Int?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  parent      PatentCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    PatentCategory[] @relation("CategoryHierarchy")
+  patents     Patent[]
+
+  @@map("patent_categories")
+}
+
+model Patent {
+  id              Int                @id @default(autoincrement())
+  title           String
+  patentNumber    String             @unique
+  description     String?
+  status          String             @default("pending")
+  type            String             @default("invention")
+  categoryId      Int?
+  applicationDate DateTime
+  publicationDate DateTime?
+  grantDate       DateTime?
+  expirationDate  DateTime?
+  priority        String             @default("medium")
+  technicalField  String?
+  keywords        String?
+  applicants      String?
+  inventors       String?
+  abstract        String?
+  claims          String?
+  drawings        String?
+  familyId        Int?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  userId          Int
+  calendarEvents  CalendarEvent[]
+  deadlines       Deadline[]
+  fees            Fee[]
+  citedCitations  PatentCitation[]   @relation("CitedPatent")
+  citingCitations PatentCitation[]   @relation("CitingPatent")
+  documents       PatentDocument[]
+  evaluations     PatentEvaluation[]
+  family          PatentFamily?      @relation(fields: [familyId], references: [id])
+  category        PatentCategory?    @relation(fields: [categoryId], references: [id])
+  user            User               @relation(fields: [userId], references: [id])
+  riskAssessments RiskAssessment[]
+  smartReminders  SmartReminder[]
+
+  @@map("patents")
+}
+
+model PatentDocument {
+  id         Int      @id @default(autoincrement())
+  patentId   Int
+  name       String
+  type       String
+  fileUrl    String
+  fileSize   Int      @default(0)
+  uploadedAt DateTime @default(now())
+  uploadedBy Int
+  user       User     @relation(fields: [uploadedBy], references: [id])
+  patent     Patent   @relation(fields: [patentId], references: [id])
+
+  @@map("patent_documents")
+}
+
+model PatentFamily {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  patents     Patent[]
+
+  @@map("patent_families")
+}
+
+model PatentCitation {
+  id             Int      @id @default(autoincrement())
+  citingPatentId Int
+  citedPatentId  Int
+  citationType   String   @default("prior_art")
+  notes          String?
+  createdAt      DateTime @default(now())
+  citedPatent    Patent   @relation("CitedPatent", fields: [citedPatentId], references: [id])
+  citingPatent   Patent   @relation("CitingPatent", fields: [citingPatentId], references: [id])
+
+  @@unique([citingPatentId, citedPatentId])
+  @@map("patent_citations")
+}
+
+model FeeCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  color       String   @default("#409EFF")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  fees        Fee[]
+
+  @@map("fee_categories")
+}
+
+model Fee {
+  id            Int          @id @default(autoincrement())
+  patentId      Int
+  patentNumber  String
+  patentTitle   String
+  type          String
+  feeType       String
+  amount        Float
+  currency      String       @default("CNY")
+  dueDate       DateTime
+  paidDate      DateTime?
+  status        String       @default("pending")
+  description   String?
+  receiptNumber String?
+  paymentMethod String?
+  notes         String?
+  categoryId    Int?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  category      FeeCategory? @relation(fields: [categoryId], references: [id])
+  patent        Patent       @relation(fields: [patentId], references: [id])
+
+  @@map("fees")
+}
+
+model Deadline {
+  id                Int             @id @default(autoincrement())
+  patentId          Int
+  patentNumber      String
+  patentTitle       String
+  title             String
+  description       String?
+  dueDate           DateTime
+  deadlineDate      DateTime
+  type              String
+  deadlineType      String
+  status            String          @default("pending")
+  priority          String          @default("medium")
+  riskLevel         String          @default("medium")
+  reminderLevel     String          @default("info")
+  daysUntilDeadline Int             @default(0)
+  isCompleted       Boolean         @default(false)
+  completedDate     DateTime?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  calendarEvents    CalendarEvent[]
+  patent            Patent          @relation(fields: [patentId], references: [id])
+  smartReminders    SmartReminder[]
+
+  @@map("deadlines")
+}
+
+model SmartReminder {
+  id            Int       @id @default(autoincrement())
+  deadlineId    Int
+  patentId      Int
+  reminderType  String    @default("notification")
+  reminderLevel String    @default("info")
+  message       String
+  scheduledDate DateTime
+  isSent        Boolean   @default(false)
+  sentAt        DateTime?
+  isRead        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  patent        Patent    @relation(fields: [patentId], references: [id])
+  deadline      Deadline  @relation(fields: [deadlineId], references: [id])
+
+  @@map("smart_reminders")
+}
+
+model CalendarEvent {
+  id          Int      @id @default(autoincrement())
+  deadlineId  Int
+  patentId    Int
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  allDay      Boolean  @default(false)
+  color       String   @default("#409EFF")
+  type        String   @default("deadline")
+  priority    String   @default("medium")
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  patent      Patent   @relation(fields: [patentId], references: [id])
+  deadline    Deadline @relation(fields: [deadlineId], references: [id])
+
+  @@map("calendar_events")
+}
+
+model RiskAssessment {
+  id                 Int      @id @default(autoincrement())
+  patentId           Int
+  riskLevel          String   @default("medium")
+  riskScore          Int      @default(50)
+  riskFactors        String?
+  mitigationActions  String?
+  assessmentDate     DateTime @default(now())
+  nextAssessmentDate DateTime
+  assessedBy         String
+  notes              String?
+  createdAt          DateTime @default(now())
+  patent             Patent   @relation(fields: [patentId], references: [id])
+
+  @@map("risk_assessments")
+}
+
+model BatchOperation {
+  id              Int       @id @default(autoincrement())
+  operationType   String
+  targetDeadlines String
+  parameters      String?
+  status          String    @default("pending")
+  progress        Int       @default(0)
+  result          String?
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  @@map("batch_operations")
+}
+
+model Task {
+  id           Int       @id @default(autoincrement())
+  title        String
+  description  String?
+  assigneeId   Int?
+  assigneeName String?
+  dueDate      DateTime?
+  status       String    @default("todo")
+  priority     String    @default("medium")
+  createdBy    Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  assignee     User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator      User      @relation("TaskCreator", fields: [createdBy], references: [id])
+
+  @@map("tasks")
+}
+
+model Activity {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  type        String
+  title       String
+  description String?
+  targetId    Int?
+  targetName  String?
+  status      String   @default("success")
+  statusText  String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("activities")
+}
+
+model Comment {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  content    String
+  type       String   @default("general")
+  targetId   Int?
+  targetType String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("comments")
+}
+
+model Meeting {
+  id           Int                  @id @default(autoincrement())
+  title        String
+  description  String?
+  startTime    DateTime
+  endTime      DateTime
+  duration     Int
+  platform     String               @default("zoom")
+  joinUrl      String?
+  hostUrl      String?
+  status       String               @default("scheduled")
+  agenda       String?
+  organizerId  Int
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  participants MeetingParticipant[]
+  organizer    User                 @relation("MeetingOrganizer", fields: [organizerId], references: [id])
+
+  @@map("meetings")
+}
+
+model MeetingParticipant {
+  id        Int       @id @default(autoincrement())
+  meetingId Int
+  userId    Int
+  role      String    @default("participant")
+  status    String    @default("invited")
+  response  String    @default("no_response")
+  userName  String?
+  joinedAt  DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+  meeting   Meeting   @relation(fields: [meetingId], references: [id])
+
+  @@unique([meetingId, userId])
+  @@map("meeting_participants")
+}
+
+model Contract {
+  id             Int       @id @default(autoincrement())
+  title          String
+  contractNumber String    @unique
+  type           String
+  status         String    @default("draft")
+  startDate      DateTime?
+  endDate        DateTime?
+  amount         Float?
+  currency       String    @default("CNY")
+  description    String?
+  terms          String?
+  parties        String?
+  documents      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("contracts")
+}
+
+model LawFirm {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  contactPerson      String?
+  phone              String?
+  email              String?
+  address            String?
+  website            String?
+  description        String?
+  specialties        String?
+  serviceLevel       String              @default("standard")
+  status             String              @default("active")
+  rating             Float               @default(0)
+  contractCount      Int                 @default(0)
+  totalRevenue       Float               @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  feeAgreements      FeeAgreement[]      @relation("LawFirmFeeAgreement")
+  serviceEvaluations ServiceEvaluation[] @relation("LawFirmServiceEvaluation")
+
+  @@map("law_firms")
+}
+
+model ContractTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String
+  description String?
+  content     String
+  variables   String
+  status      String   @default("draft")
+  version     String   @default("1.0")
+  createdBy   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("contract_templates")
+}
+
+model FeeAgreement {
+  id              Int       @id @default(autoincrement())
+  lawFirmId       Int
+  contractId      Int?
+  feeType         String
+  amount          Float
+  currency        String    @default("CNY")
+  paymentTerms    String?
+  startDate       DateTime?
+  endDate         DateTime?
+  status          String    @default("pending")
+  paidAmount      Float     @default(0)
+  lastPaymentDate DateTime?
+  nextPaymentDate DateTime?
+  description     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lawFirm         LawFirm   @relation("LawFirmFeeAgreement", fields: [lawFirmId], references: [id])
+
+  @@map("fee_agreements")
+}
+
+model ServiceEvaluation {
+  id              Int      @id @default(autoincrement())
+  lawFirmId       Int
+  contractId      Int?
+  evaluatorId     Int
+  evaluationDate  DateTime
+  criteria        String
+  overallScore    Float
+  comments        String?
+  recommendations String?
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  evaluator       User     @relation("ServiceEvaluator", fields: [evaluatorId], references: [id])
+  lawFirm         LawFirm  @relation("LawFirmServiceEvaluation", fields: [lawFirmId], references: [id])
+
+  @@map("service_evaluations")
+}
+
+model PatentEvaluation {
+  id              Int      @id @default(autoincrement())
+  patentId        Int
+  evaluatorId     Int
+  score           Float
+  criteria        String
+  comments        String
+  recommendations String
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  evaluator       User     @relation("PatentEvaluator", fields: [evaluatorId], references: [id])
+  patent          Patent   @relation(fields: [patentId], references: [id])
+
+  @@map("patent_evaluations")
+}
+
+model DocumentVersion {
+  id         Int      @id @default(autoincrement())
+  documentId String   @unique
+  version    String
+  content    String
+  changes    String?
+  createdBy  Int
+  createdAt  DateTime @default(now())
+  user       User     @relation("DocumentVersionCreator", fields: [createdBy], references: [id])
+
+  @@map("document_versions")
+}
+
+model ApprovalWorkflow {
+  id          Int                  @id @default(autoincrement())
+  name        String
+  description String?
+  steps       String
+  status      String               @default("active")
+  type        String               @default("sequential") // 工作流类型：sequential, parallel, conditional
+  priority    String               @default("medium")     // 优先级：low, medium, high, urgent
+  category    String               @default("通用")        // 分类：专利、合同、报告等
+  version     String               @default("1.0")        // 工作流版本
+  tags        String?              // 标签，JSON格式存储
+  isActive    Boolean              @default(true)         // 是否活跃
+  createdBy   Int
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  delegations ApprovalDelegation[]
+  processes   ApprovalProcess[]
+  user        User                 @relation("WorkflowCreator", fields: [createdBy], references: [id])
+
+  @@map("approval_workflows")
+}
+
+model ApprovalProcess {
+  id          Int                  @id @default(autoincrement())
+  workflowId  Int
+  documentId  String
+  currentStep Int
+  status      String               @default("pending")
+  startedBy   Int
+  startedAt   DateTime             @default(now())
+  completedAt DateTime?
+  escalations ApprovalEscalation[]
+  user        User                 @relation("ProcessStarter", fields: [startedBy], references: [id])
+  workflow    ApprovalWorkflow     @relation(fields: [workflowId], references: [id])
+  timeouts    ApprovalTimeout[]
+
+  @@map("approval_processes")
+}
+
+model DocumentTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String
+  type      String
+  content   String
+  variables String?
+  status    String   @default("active")
+  createdBy Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("TemplateCreator", fields: [createdBy], references: [id])
+
+  @@map("document_templates")
+}
+
+model DocumentAccess {
+  id         Int       @id @default(autoincrement())
+  documentId String
+  userId     Int
+  permission String
+  grantedBy  Int
+  grantedAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  granter    User      @relation("AccessGranter", fields: [grantedBy], references: [id])
+  user       User      @relation("AccessGrantee", fields: [userId], references: [id])
+
+  @@map("document_access")
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  type       String   // 活动类型：login, password, notification, profile, view, edit, delete
+  title      String   // 活动标题
+  status     String   @default("success") // 活动状态：success, failed, pending, completed, viewed, modified, updated, deleted
+  details    String?  // 活动详情
+  ipAddress  String?  // IP地址
+  userAgent  String?  // 用户代理
+  timestamp  DateTime @default(now()) // 活动时间戳
+  user       User     @relation("ActivityLogger", fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model ElectronicSignature {
+  id         Int       @id @default(autoincrement())
+  documentId String
+  userId     Int
+  signature  String
+  signedAt   DateTime  @default(now())
+  expiresAt  DateTime?
+  status     String    @default("valid")
+  user       User      @relation("SignatureCreator", fields: [userId], references: [id])
+
+  @@map("electronic_signatures")
+}
+
+model ApprovalDelegation {
+  id          Int              @id @default(autoincrement())
+  delegatorId Int
+  delegateId  Int
+  workflowId  Int
+  startDate   DateTime
+  endDate     DateTime
+  status      String           @default("active")
+  createdAt   DateTime         @default(now())
+  workflow    ApprovalWorkflow @relation(fields: [workflowId], references: [id])
+  delegate    User             @relation("Delegate", fields: [delegateId], references: [id])
+  delegator   User             @relation("Delegator", fields: [delegatorId], references: [id])
+
+  @@map("approval_delegations")
+}
+
+model ApprovalTimeout {
+  id              Int             @id @default(autoincrement())
+  processId       Int
+  stepNumber      Int
+  timeoutDuration Int
+  action          String
+  createdAt       DateTime        @default(now())
+  process         ApprovalProcess @relation(fields: [processId], references: [id])
+
+  @@map("approval_timeouts")
+}
+
+model ApprovalEscalation {
+  id          Int             @id @default(autoincrement())
+  processId   Int
+  fromUserId  Int
+  toUserId    Int
+  reason      String
+  escalatedAt DateTime        @default(now())
+  status      String          @default("pending")
+  toUser      User            @relation("EscalationTo", fields: [toUserId], references: [id])
+  fromUser    User            @relation("EscalationFrom", fields: [fromUserId], references: [id])
+  process     ApprovalProcess @relation(fields: [processId], references: [id])
+
+  @@map("approval_escalations")
+}
+
+model WorkflowTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  steps       String
+  category    String
+  status      String   @default("active")
+  createdBy   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation("WorkflowTemplateCreator", fields: [createdBy], references: [id])
+
+  @@map("workflow_templates")
+}
+
+model SecuritySettings {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  category  String
+  settings  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserSecuritySettings", fields: [userId], references: [id])
+
+  @@unique([userId, category])
+  @@map("security_settings")
+}
+
+model SecurityEventLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  eventType   String
+  description String
+  severity    String
+  timestamp   DateTime @default(now())
+  metadata    String?
+  ipAddress   String?
+  userAgent   String?
+  user        User     @relation("UserSecurityEvents", fields: [userId], references: [id])
+
+  @@map("security_event_logs")
+}
+
+model BackupRecord {
+  id          Int       @id @default(autoincrement())
+  backupType  String
+  location    String
+  size        Int
+  status      String
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  error       String?
+  metadata    String?
+  createdBy   Int
+  user        User      @relation("UserBackupRecords", fields: [createdBy], references: [id])
+
+  @@map("backup_records")
+}
+
+// 协作空间相关模型
+model CollaborationChannel {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  type        String   @default("general") // general, project, team
+  status      String   @default("active")
+  createdBy   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  members     CollaborationChannelMember[]
+  messages    CollaborationMessage[]
+  tasks       CollaborationTask[]
+  user        User     @relation("ChannelCreator", fields: [createdBy], references: [id])
+
+  @@map("collaboration_channels")
+}
+
+model CollaborationChannelMember {
+  id        Int                   @id @default(autoincrement())
+  channelId Int
+  userId    Int
+  role      String                @default("member") // admin, moderator, member
+  joinedAt  DateTime              @default(now())
+  status    String                @default("active")
+  channel   CollaborationChannel  @relation(fields: [channelId], references: [id])
+  user      User                  @relation(fields: [userId], references: [id])
+
+  @@unique([channelId, userId])
+  @@map("collaboration_channel_members")
+}
+
+model CollaborationMessage {
+  id        Int                   @id @default(autoincrement())
+  channelId Int
+  userId    Int
+  content   String
+  type      String                @default("text") // text, file, image, system
+  metadata  String?               // JSON string for additional data
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  channel   CollaborationChannel  @relation(fields: [channelId], references: [id])
+  user      User                  @relation(fields: [userId], references: [id])
+
+  @@map("collaboration_messages")
+}
+
+model CollaborationTask {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  assigneeId  Int?
+  dueDate     DateTime?
+  status      String   @default("todo") // todo, in_progress, done, cancelled
+  priority    String   @default("medium") // low, medium, high, urgent
+  channelId   Int?
+  createdBy   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  assignee    User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator     User     @relation("TaskCreator", fields: [createdBy], references: [id])
+  channel     CollaborationChannel? @relation(fields: [channelId], references: [id])
+
+  @@map("collaboration_tasks")
+}

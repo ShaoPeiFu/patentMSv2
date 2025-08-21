@@ -39,8 +39,10 @@ export interface DeadlineRecord {
   patentId: number;
   patentNumber: string;
   patentTitle: string;
+  title: string;
   deadlineType: DeadlineType;
   deadlineDate: string;
+  dueDate: string; // 兼容后端字段
   status: DeadlineStatus;
   description: string;
   priority: 'high' | 'medium' | 'low';

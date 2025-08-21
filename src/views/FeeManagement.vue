@@ -17,7 +17,7 @@
           预算管理
         </el-button>
         <el-button @click="activeTab = 'reconciliation'">
-          <el-icon><DocumentIcon /></el-icon>
+          <el-icon><Document /></el-icon>
           财务对账
         </el-button>
       </div>
@@ -153,23 +153,31 @@
               stripe
               style="width: 100%"
             >
-              <el-table-column prop="patentNumber" label="专利号" width="150" />
-              <el-table-column
-                prop="patentTitle"
-                label="专利标题"
-                min-width="200"
-              />
-              <el-table-column prop="feeType" label="费用类型" width="120">
+              <el-table-column label="专利号" width="150">
                 <template #default="{ row }">
-                  <el-tag :type="getFeeTypeTag(row.feeType)">
-                    {{ getFeeTypeText(row.feeType) }}
+                  {{ getPatentNumber(row) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="专利标题" min-width="200">
+                <template #default="{ row }">
+                  {{ getPatentTitle(row) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="费用类型" width="120">
+                <template #default="{ row }">
+                  <el-tag :type="getFeeTypeTag(row.type || row.feeType)">
+                    {{ getFeeTypeText(row.type || row.feeType) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="amount" label="金额" width="120">
+              <el-table-column label="金额" width="120">
                 <template #default="{ row }"> ¥{{ row.amount }} </template>
               </el-table-column>
-              <el-table-column prop="dueDate" label="到期日期" width="120" />
+              <el-table-column label="到期日期" width="120">
+                <template #default="{ row }">
+                  {{ formatDate(row.dueDate) }}
+                </template>
+              </el-table-column>
               <el-table-column prop="status" label="状态" width="100">
                 <template #default="{ row }">
                   <el-tag :type="getStatusType(row.status)">
@@ -179,31 +187,33 @@
               </el-table-column>
               <el-table-column label="操作" width="200" fixed="right">
                 <template #default="{ row }">
-                  <el-button
-                    size="small"
-                    @click="editFeeRecord(row)"
-                    v-if="canEdit"
-                    >编辑</el-button
-                  >
-                  <el-button
-                    size="small"
-                    type="success"
-                    v-if="row.status === 'pending' && canMarkAsPaid"
-                    @click="markAsPaid(row)"
-                  >
-                    标记已缴费
-                  </el-button>
-                  <el-button
-                    size="small"
-                    type="danger"
-                    @click="deleteFeeRecord(row.id)"
-                    v-if="canEdit"
-                  >
-                    删除
-                  </el-button>
-                  <el-tag v-if="!canEdit" type="info" size="small"
-                    >仅管理员可操作</el-tag
-                  >
+                  <div class="action-buttons">
+                    <el-button
+                      size="small"
+                      @click="editFeeRecord(row)"
+                      v-if="canEdit"
+                      >编辑</el-button
+                    >
+                    <el-button
+                      size="small"
+                      type="success"
+                      v-if="row.status === 'pending' && canMarkAsPaid"
+                      @click="markAsPaid(row)"
+                    >
+                      标记已缴费
+                    </el-button>
+                    <el-button
+                      size="small"
+                      type="danger"
+                      @click="deleteFeeRecord(row.id)"
+                      v-if="canEdit"
+                    >
+                      删除
+                    </el-button>
+                    <el-tag v-if="!canEdit" type="info" size="small"
+                      >仅管理员可操作</el-tag
+                    >
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -223,24 +233,30 @@
                 v-for="reminder in feeReminders"
                 :key="reminder.id"
                 class="reminder-card"
-                :class="reminder.level"
+                :class="getReminderLevel(reminder)"
               >
                 <div class="reminder-content">
                   <div class="reminder-info">
-                    <h4>{{ reminder.patentTitle }}</h4>
-                    <p class="patent-number">{{ reminder.patentNumber }}</p>
+                    <h4>{{ reminder.title }}</h4>
+                    <p class="patent-number">
+                      专利ID: {{ reminder.categoryId }}
+                    </p>
                     <p class="fee-info">
-                      {{ getFeeTypeText(reminder.feeType) }} - ¥{{
-                        reminder.amount
-                      }}
+                      {{ getFeeTypeText(reminder.status) }}
+                      - ¥{{ reminder.amount }}
                     </p>
                     <p class="due-info">
                       到期日期: {{ reminder.dueDate }}
-                      <span class="days-left" :class="reminder.level">
+                      <span
+                        class="days-left"
+                        :class="getReminderLevel(reminder)"
+                      >
                         {{
-                          reminder.daysUntilDue > 0
-                            ? `还有 ${reminder.daysUntilDue} 天`
-                            : `已逾期 ${Math.abs(reminder.daysUntilDue)} 天`
+                          getDaysUntilDue(reminder.dueDate) > 0
+                            ? `还有 ${getDaysUntilDue(reminder.dueDate)} 天`
+                            : `已逾期 ${Math.abs(
+                                getDaysUntilDue(reminder.dueDate)
+                              )} 天`
                         }}
                       </span>
                     </p>
@@ -253,13 +269,6 @@
                       v-if="canMarkAsPaid"
                     >
                       标记已缴费
-                    </el-button>
-                    <el-button
-                      size="small"
-                      @click="markReminderAsRead(reminder.id)"
-                      v-if="!reminder.isRead"
-                    >
-                      标记已读
                     </el-button>
                     <el-tag v-if="!canMarkAsPaid" type="info" size="small"
                       >仅管理员可操作</el-tag
@@ -294,28 +303,18 @@
               >
                 <div class="budget-header">
                   <h4>{{ budget.name }}</h4>
-                  <el-tag :type="budget.isActive ? 'success' : 'info'">
-                    {{ budget.isActive ? "活跃" : "非活跃" }}
-                  </el-tag>
+                  <el-tag type="info"> 预算分类 </el-tag>
                 </div>
                 <div class="budget-info">
-                  <p class="budget-period">
-                    {{ budget.startDate }} 至 {{ budget.endDate }}
+                  <p class="budget-description">
+                    {{ budget.description || "暂无描述" }}
                   </p>
-                  <p class="budget-description">{{ budget.description }}</p>
                 </div>
                 <div class="budget-progress">
                   <div class="budget-amounts">
-                    <span>总预算: ¥{{ budget.amount }}</span>
-                    <span>已使用: ¥{{ budget.spentAmount }}</span>
-                    <span>剩余: ¥{{ budget.remainingAmount }}</span>
+                    <span>预算分类: {{ budget.name }}</span>
                   </div>
-                  <el-progress
-                    :percentage="(budget.spentAmount / budget.amount) * 100"
-                    :color="
-                      getProgressColor(budget.spentAmount / budget.amount)
-                    "
-                  />
+                  <el-progress :percentage="0" color="#909399" />
                 </div>
                 <div class="budget-actions">
                   <el-button
@@ -361,33 +360,43 @@
               stripe
               style="width: 100%"
             >
-              <el-table-column prop="patentNumber" label="专利号" width="150" />
-              <el-table-column
-                prop="patentTitle"
-                label="专利标题"
-                min-width="200"
-              />
-              <el-table-column prop="feeType" label="费用类型" width="120">
+              <el-table-column label="专利号" width="150">
                 <template #default="{ row }">
-                  <el-tag :type="getFeeTypeTag(row.feeType)">
-                    {{ getFeeTypeText(row.feeType) }}
+                  {{ getPatentNumber(row) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="专利标题" min-width="200">
+                <template #default="{ row }">
+                  {{ getPatentTitle(row) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="费用类型" width="120">
+                <template #default="{ row }">
+                  <el-tag :type="getFeeTypeTag(row.type || row.feeType)">
+                    {{ getFeeTypeText(row.type || row.feeType) }}
                   </el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="预期金额" width="120">
                 <template #default="{ row }">
-                  ¥{{ row.expectedAmount }}
+                  ¥{{ row.expectedAmount || row.amount || 0 }}
                 </template>
               </el-table-column>
               <el-table-column label="实际金额" width="120">
                 <template #default="{ row }">
-                  ¥{{ row.actualAmount }}
+                  ¥{{ row.actualAmount || row.amount || 0 }}
                 </template>
               </el-table-column>
               <el-table-column label="差异" width="120">
                 <template #default="{ row }">
-                  <span :class="row.difference >= 0 ? 'positive' : 'negative'">
-                    {{ row.difference >= 0 ? "+" : "" }}¥{{ row.difference }}
+                  <span
+                    :class="
+                      (row.difference || 0) >= 0 ? 'positive' : 'negative'
+                    "
+                  >
+                    {{ (row.difference || 0) >= 0 ? "+" : "" }}¥{{
+                      row.difference || 0
+                    }}
                   </span>
                 </template>
               </el-table-column>
@@ -398,25 +407,27 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="150" fixed="right">
+              <el-table-column label="操作" width="180" fixed="right">
                 <template #default="{ row }">
-                  <el-button
-                    size="small"
-                    @click="editReconciliation(row)"
-                    v-if="canEdit"
-                    >编辑</el-button
-                  >
-                  <el-button
-                    size="small"
-                    type="danger"
-                    @click="deleteReconciliation(row.id)"
-                    v-if="canEdit"
-                  >
-                    删除
-                  </el-button>
-                  <el-tag v-if="!canEdit" type="info" size="small"
-                    >仅管理员可操作</el-tag
-                  >
+                  <div class="action-buttons">
+                    <el-button
+                      size="small"
+                      @click="editReconciliation(row)"
+                      v-if="canEdit"
+                      >编辑</el-button
+                    >
+                    <el-button
+                      size="small"
+                      type="danger"
+                      @click="deleteReconciliation(row.id)"
+                      v-if="canEdit"
+                    >
+                      删除
+                    </el-button>
+                    <el-tag v-if="!canEdit" type="info" size="small"
+                      >仅管理员可操作</el-tag
+                    >
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -497,6 +508,7 @@ import { ref, computed, onMounted } from "vue";
 import { useFeeStore } from "@/stores/fee";
 import { useUserStore } from "@/stores/user";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { formatDate } from "@/utils/dateUtils";
 import {
   Plus,
   Money,
@@ -505,12 +517,7 @@ import {
   Clock,
   Warning,
 } from "@element-plus/icons-vue";
-import type {
-  FeeRecord,
-  FeeReminder,
-  FeeBudget,
-  ReconciliationRecord,
-} from "@/types/fee";
+import type { FeeRecord, FeeBudget, ReconciliationRecord } from "@/types/fee";
 import FeeForm from "@/components/fees/FeeForm.vue";
 import BudgetForm from "@/components/fees/BudgetForm.vue";
 import ReconciliationForm from "@/components/fees/ReconciliationForm.vue";
@@ -563,7 +570,10 @@ const activeBudgets = computed(() => feeStore.activeBudgets || []);
 const reconciliationRecords = computed(
   () => feeStore.reconciliationRecords || []
 );
-const overdueReminders = computed(() => feeStore.overdueReminders || []);
+const overdueReminders = computed(
+  () =>
+    feeStore.feeReminders.filter((r) => getDaysUntilDue(r.dueDate) <= 0) || []
+);
 
 const filteredFeeRecords = computed(() => {
   let filtered = [...feeRecords.value];
@@ -606,9 +616,11 @@ const handleReset = () => {
 
 const handleAddFee = async (feeData: any) => {
   try {
-    await feeStore.addFeeRecord(feeData);
+    await feeStore.addFee(feeData);
     ElMessage.success("费用记录添加成功");
     showAddFeeDialog.value = false;
+    // 刷新数据
+    await feeStore.fetchFees();
   } catch (error) {
     ElMessage.error("添加失败");
   }
@@ -617,10 +629,12 @@ const handleAddFee = async (feeData: any) => {
 const handleEditFee = async (feeData: any) => {
   try {
     if (editingFee.value) {
-      await feeStore.updateFeeRecord(editingFee.value.id, feeData);
+      await feeStore.updateFee(editingFee.value.id, feeData);
       ElMessage.success("费用记录更新成功");
       showEditFeeDialog.value = false;
       editingFee.value = null;
+      // 刷新数据
+      await feeStore.fetchFees();
     }
   } catch (error) {
     ElMessage.error("更新失败");
@@ -655,11 +669,13 @@ const editFeeRecord = (record: FeeRecord) => {
 const markAsPaid = async (record: FeeRecord) => {
   try {
     await ElMessageBox.confirm("确认将此费用标记为已缴费？", "确认操作");
-    await feeStore.updateFeeRecord(record.id, {
+    await feeStore.updateFee(record.id, {
       status: "paid",
       paidDate: new Date().toISOString(),
     });
     ElMessage.success("费用状态已更新");
+    // 刷新数据
+    await feeStore.fetchFees();
   } catch (error) {
     if (error !== "cancel") {
       ElMessage.error("操作失败");
@@ -670,8 +686,10 @@ const markAsPaid = async (record: FeeRecord) => {
 const deleteFeeRecord = async (id: number) => {
   try {
     await ElMessageBox.confirm("确认删除此费用记录？", "确认删除");
-    await feeStore.deleteFeeRecord(id);
+    await feeStore.deleteFee(id);
     ElMessage.success("删除成功");
+    // 刷新数据
+    await feeStore.fetchFees();
   } catch (error) {
     if (error !== "cancel") {
       ElMessage.error("删除失败");
@@ -679,27 +697,14 @@ const deleteFeeRecord = async (id: number) => {
   }
 };
 
-const markAsPaidFromReminder = async (reminder: FeeReminder) => {
+const markAsPaidFromReminder = async (reminder: any) => {
   try {
     await ElMessageBox.confirm("确认将此费用标记为已缴费？", "确认操作");
-    // 找到对应的费用记录并更新
-    const feeRecord = feeRecords.value.find(
-      (fee) =>
-        fee.patentId === reminder.patentId && fee.feeType === reminder.feeType
-    );
-    if (feeRecord) {
-      await feeStore.updateFeeRecord(feeRecord.id, {
-        status: "paid",
-        paidDate: new Date().toISOString(),
-      });
-      // 移除对应的提醒
-      await feeStore.markReminderAsPaid(reminder.patentId);
-      ElMessage.success("费用状态已更新，提醒已移除");
-    } else {
-      // 如果没有找到对应的费用记录，直接移除提醒
-      await feeStore.markReminderAsPaid(reminder.patentId);
-      ElMessage.success("提醒已移除");
-    }
+    // 直接更新当前费用记录
+    await feeStore.updateFeeRecord(reminder.id, {
+      status: "paid",
+    });
+    ElMessage.success("费用状态已更新");
   } catch (error) {
     if (error !== "cancel") {
       ElMessage.error("操作失败");
@@ -707,21 +712,15 @@ const markAsPaidFromReminder = async (reminder: FeeReminder) => {
   }
 };
 
-const markReminderAsRead = async (id: number) => {
-  await feeStore.markReminderAsRead(id);
-  ElMessage.success("提醒已标记为已读");
-};
-
 const markAllAsRead = async () => {
+  // 简化处理：直接标记所有提醒为已读
   for (const reminder of feeReminders.value) {
-    if (!reminder.isRead) {
-      await feeStore.markReminderAsRead(reminder.id);
-    }
+    await feeStore.markReminderAsRead(reminder.id);
   }
   ElMessage.success("所有提醒已标记为已读");
 };
 
-const editBudget = (budget: FeeBudget) => {
+const editBudget = (budget: any) => {
   editingBudget.value = { ...budget };
   showEditBudgetDialog.value = true;
 };
@@ -786,6 +785,16 @@ const deleteReconciliation = async (_id: number) => {
 };
 
 // 辅助方法
+const getPatentNumber = (row: any) => {
+  // 尝试从不同字段获取专利号
+  return row.patentNumber || row.patent?.patentNumber || row.patentId || "未知";
+};
+
+const getPatentTitle = (row: any) => {
+  // 尝试从不同字段获取专利标题
+  return row.patentTitle || row.patent?.title || row.title || "未知";
+};
+
 const getFeeTypeText = (type: string) => {
   const texts: Record<string, string> = {
     application: "申请费",
@@ -809,9 +818,9 @@ const getFeeTypeTag = (type: string) => {
     priority: "danger",
     extension: "warning",
     correction: "info",
-    other: "",
+    other: "info", // 修复：将空字符串改为有效的tag类型
   };
-  return tags[type] || "";
+  return tags[type] || "info"; // 修复：默认返回"info"而不是空字符串
 };
 
 const getStatusText = (status: string) => {
@@ -838,26 +847,39 @@ const getStatusType = (status: string) => {
 
 const getReconciliationStatusText = (status: string) => {
   const texts: Record<string, string> = {
-    matched: "已匹配",
-    unmatched: "不匹配",
-    pending: "待处理",
+    pending: "待对账",
+    paid: "已对账",
+    overdue: "逾期",
+    waived: "减免",
+    refunded: "已退款",
   };
   return texts[status] || status;
 };
 
 const getReconciliationStatusType = (status: string) => {
   const types: Record<string, string> = {
-    matched: "success",
-    unmatched: "danger",
     pending: "warning",
+    paid: "success",
+    overdue: "danger",
+    waived: "info",
+    refunded: "info",
   };
   return types[status] || "info";
 };
 
-const getProgressColor = (percentage: number) => {
-  if (percentage < 0.6) return "#67c23a";
-  if (percentage < 0.8) return "#e6a23c";
-  return "#f56c6c";
+const getReminderLevel = (reminder: any) => {
+  const daysUntilDue = getDaysUntilDue(reminder.dueDate);
+  if (daysUntilDue < 0) return "critical";
+  if (daysUntilDue <= 7) return "urgent";
+  if (daysUntilDue <= 30) return "warning";
+  return "info";
+};
+
+const getDaysUntilDue = (dueDate: string) => {
+  const due = new Date(dueDate);
+  const now = new Date();
+  const diffTime = due.getTime() - now.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
 // 生命周期
@@ -1152,5 +1174,50 @@ onMounted(async () => {
   .reminder-actions {
     justify-content: center;
   }
+}
+
+/* 操作按钮样式 */
+.action-buttons {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.action-buttons .el-button {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 8px 12px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+}
+
+.action-buttons .el-tag {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  text-align: center !important;
+  margin: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  padding: 8px 12px !important;
+  flex-shrink: 0 !important;
+}
+
+/* 强制覆盖Element Plus的默认样式 */
+.el-table .el-table__cell .action-buttons,
+.el-table .el-table__cell .action-buttons * {
+  box-sizing: border-box !important;
+}
+
+/* 确保操作列内容不会溢出 */
+.el-table .el-table__cell .action-buttons {
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 </style>

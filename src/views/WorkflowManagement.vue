@@ -80,7 +80,7 @@
               v-model="searchKeyword"
               placeholder="搜索工作流..."
               clearable
-              style="width: 200px; margin-right: 12px"
+              class="filter-input"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
@@ -90,7 +90,7 @@
               v-model="statusFilter"
               placeholder="状态筛选"
               clearable
-              style="width: 120px; margin-right: 12px"
+              class="filter-select"
             >
               <el-option label="活跃" value="active" />
               <el-option label="非活跃" value="inactive" />
@@ -99,7 +99,7 @@
               v-model="categoryFilter"
               placeholder="分类筛选"
               clearable
-              style="width: 120px"
+              class="filter-select"
             >
               <el-option label="文档" value="文档" />
               <el-option label="专利" value="专利" />
@@ -108,16 +108,30 @@
           </div>
         </div>
 
-        <el-table :data="filteredWorkflows" stripe>
+        <el-table
+          :data="filteredWorkflows"
+          stripe
+          :max-height="600"
+          border
+          style="width: 100%"
+        >
           <el-table-column prop="name" label="工作流名称" min-width="200">
             <template #default="{ row }">
               <div class="workflow-name">
                 <strong>{{ row.name }}</strong>
                 <div class="workflow-meta">
-                  <el-tag size="small" :type="getTypeTagType(row.type)">
+                  <el-tag
+                    size="small"
+                    :type="getTypeTagType(row.type)"
+                    class="meta-tag"
+                  >
                     {{ getTypeText(row.type) }}
                   </el-tag>
-                  <el-tag size="small" :type="getPriorityTagType(row.priority)">
+                  <el-tag
+                    size="small"
+                    :type="getPriorityTagType(row.priority)"
+                    class="meta-tag"
+                  >
                     {{ getPriorityText(row.priority) }}
                   </el-tag>
                 </div>
@@ -125,48 +139,66 @@
             </template>
           </el-table-column>
 
-          <el-table-column prop="category" label="分类" width="100" />
+          <el-table-column prop="category" label="分类" width="120" />
 
-          <el-table-column prop="steps" label="步骤数" width="80">
+          <el-table-column prop="steps" label="步骤数" width="100">
             <template #default="{ row }">
-              {{ row.steps.length }}
+              <el-tag size="small" type="info" class="step-count-tag">
+                {{ row.steps.length }}
+              </el-tag>
             </template>
           </el-table-column>
 
-          <el-table-column prop="isActive" label="状态" width="80">
+          <el-table-column prop="isActive" label="状态" width="100">
             <template #default="{ row }">
-              <el-tag :type="row.isActive ? 'success' : 'info'">
+              <el-tag
+                :type="row.isActive ? 'success' : 'info'"
+                class="status-tag"
+              >
                 {{ row.isActive ? "活跃" : "非活跃" }}
               </el-tag>
             </template>
           </el-table-column>
 
-          <el-table-column prop="version" label="版本" width="80" />
+          <el-table-column prop="version" label="版本" width="100" />
 
-          <el-table-column prop="createdAt" label="创建时间" width="160">
+          <el-table-column prop="createdAt" label="创建时间" width="180">
             <template #default="{ row }">
               {{ formatDate(row.createdAt) }}
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="240" fixed="right">
+          <el-table-column label="操作" width="320" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" @click="viewWorkflow(row)">
-                详情
-              </el-button>
-              <el-button size="small" type="primary" @click="editWorkflow(row)">
-                编辑
-              </el-button>
-              <el-button size="small" @click="cloneWorkflow(row)">
-                克隆
-              </el-button>
-              <el-button
-                size="small"
-                :type="row.isActive ? 'warning' : 'success'"
-                @click="toggleWorkflowStatus(row)"
-              >
-                {{ row.isActive ? "停用" : "启用" }}
-              </el-button>
+              <div class="action-buttons">
+                <el-button size="small" @click="viewWorkflow(row)">
+                  详情
+                </el-button>
+                <el-button
+                  size="small"
+                  type="primary"
+                  @click="editWorkflow(row)"
+                >
+                  编辑
+                </el-button>
+                <el-button size="small" @click="cloneWorkflow(row)">
+                  克隆
+                </el-button>
+                <el-button
+                  size="small"
+                  :type="row.isActive ? 'warning' : 'success'"
+                  @click="toggleWorkflowStatus(row)"
+                >
+                  {{ row.isActive ? "停用" : "启用" }}
+                </el-button>
+                <el-button
+                  size="small"
+                  type="danger"
+                  @click="deleteWorkflow(row)"
+                >
+                  删除
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -328,38 +360,71 @@ const toggleWorkflowStatus = async (workflow: ApprovalWorkflow) => {
       }
     );
 
-    // 这里应该调用store方法更新工作流状态
-    const index = documentStore.approvalWorkflows.findIndex(
-      (w) => w.id === workflow.id
-    );
-    if (index !== -1) {
-      documentStore.approvalWorkflows[index].isActive = !workflow.isActive;
-      documentStore.saveToStorage();
-      ElMessage.success(`工作流已${action}`);
+    // 调用API更新工作流状态
+    const newStatus = workflow.isActive ? "inactive" : "active";
+    await documentStore.toggleWorkflowStatus(parseInt(workflow.id), newStatus);
+    ElMessage.success(`工作流已${action}`);
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error(`${action}失败: ${(error as Error).message}`);
     }
-  } catch {
-    // 用户取消操作
   }
 };
 
-const handleSaveWorkflow = (workflowData: Partial<ApprovalWorkflow>) => {
+const deleteWorkflow = async (workflow: ApprovalWorkflow) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除工作流"${workflow.name}"吗？此操作不可恢复！`,
+      "确认删除",
+      {
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
+        confirmButtonClass: "el-button--danger",
+      }
+    );
+
+    console.log(`🗑️ 开始删除工作流: ${workflow.name} (ID: ${workflow.id})`);
+
+    // 调用API删除工作流
+    await documentStore.deleteWorkflow(parseInt(workflow.id));
+
+    console.log(`✅ 工作流删除成功: ${workflow.name} (ID: ${workflow.id})`);
+    console.log(
+      `📊 删除后本地工作流数量: ${documentStore.approvalWorkflows.length}`
+    );
+
+    ElMessage.success("工作流删除成功");
+
+    // 强制刷新工作流列表以确保UI同步
+    try {
+      await documentStore.fetchWorkflows();
+      console.log(
+        `🔄 强制刷新完成，当前工作流数量: ${documentStore.approvalWorkflows.length}`
+      );
+    } catch (refreshError) {
+      console.warn("强制刷新失败，但删除操作已成功:", refreshError);
+    }
+  } catch (error) {
+    if (error !== "cancel") {
+      console.error("删除工作流失败:", error);
+      ElMessage.error(`删除失败: ${(error as Error).message}`);
+    }
+  }
+};
+
+const handleSaveWorkflow = async (workflowData: Partial<ApprovalWorkflow>) => {
   try {
     if (editingWorkflow.value) {
       // 编辑现有工作流
-      const index = documentStore.approvalWorkflows.findIndex(
-        (w) => w.id === editingWorkflow.value!.id
+      await documentStore.updateWorkflow(
+        parseInt(editingWorkflow.value.id),
+        workflowData
       );
-      if (index !== -1) {
-        documentStore.approvalWorkflows[index] = {
-          ...documentStore.approvalWorkflows[index],
-          ...workflowData,
-        };
-        documentStore.saveToStorage();
-        ElMessage.success("工作流更新成功");
-      }
+      ElMessage.success("工作流更新成功");
     } else {
       // 创建新工作流
-      documentStore.createApprovalWorkflow(
+      await documentStore.createApprovalWorkflow(
         workflowData as Omit<ApprovalWorkflow, "id" | "createdAt">
       );
       ElMessage.success("工作流创建成功");
@@ -376,9 +441,12 @@ const handleCancelEdit = () => {
   editingWorkflow.value = null;
 };
 
-const handleCreateFromTemplate = (templateId: string, customData: any) => {
+const handleCreateFromTemplate = async (
+  templateId: string,
+  customData: any
+) => {
   try {
-    documentStore.createWorkflowFromTemplate(templateId, customData);
+    await documentStore.createWorkflowFromTemplate(templateId, customData);
     ElMessage.success("基于模板创建工作流成功");
     showTemplateDialog.value = false;
   } catch (error) {
@@ -430,8 +498,19 @@ const formatDate = (dateString: string) => {
 };
 
 // 生命周期
-onMounted(() => {
-  // 页面加载时的初始化逻辑
+onMounted(async () => {
+  try {
+    console.log("🚀 工作流管理页面初始化...");
+    // 加载工作流和模板数据
+    await Promise.all([
+      documentStore.fetchWorkflows(),
+      documentStore.fetchWorkflowTemplates(),
+    ]);
+    console.log("✅ 工作流管理页面初始化完成");
+  } catch (error) {
+    console.error("❌ 工作流管理页面初始化失败:", error);
+    ElMessage.error("页面初始化失败，请刷新重试");
+  }
 });
 </script>
 
@@ -541,6 +620,16 @@ onMounted(() => {
 .list-filters {
   display: flex;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-input {
+  width: 200px;
+}
+
+.filter-select {
+  width: 120px;
 }
 
 .workflow-name {
@@ -552,12 +641,63 @@ onMounted(() => {
 .workflow-meta {
   display: flex;
   gap: 8px;
+  margin-top: 4px;
+}
+
+.meta-tag {
+  font-size: 11px;
+  height: 20px;
+  line-height: 18px;
+  padding: 0 6px;
+}
+
+.step-count-tag {
+  font-size: 12px;
+  height: 24px;
+  line-height: 22px;
+  padding: 0 8px;
+  min-width: 32px;
+  text-align: center;
+}
+
+.status-tag {
+  font-size: 12px;
+  height: 24px;
+  line-height: 22px;
+  padding: 0 8px;
+  min-width: 48px;
+  text-align: center;
+}
+
+/* 操作按钮样式 */
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+  flex-shrink: 0;
 }
 
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .statistics-overview .el-col {
     margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .action-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-buttons .el-button {
+    width: 100%;
+    margin-bottom: 4px;
   }
 }
 

@@ -445,6 +445,7 @@ const uploaders = computed(() => {
   return searchResult.value.facets.uploaders;
 });
 
+
 const availableVersionsForParent = computed(() => {
   return documentVersions.value.sort(
     (a, b) =>

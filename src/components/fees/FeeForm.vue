@@ -7,20 +7,34 @@
       label-width="120px"
       @submit.prevent="handleSubmit"
     >
-      <el-form-item label="专利号" prop="patentNumber">
-        <el-input
-          v-model="form.patentNumber"
-          placeholder="输入专利号"
+      <el-form-item label="选择专利" prop="patentId">
+        <el-select
+          v-model="form.patentId"
+          placeholder="请选择专利"
+          style="width: 100%"
+          filterable
           clearable
-        />
-      </el-form-item>
-
-      <el-form-item label="专利标题" prop="patentTitle">
-        <el-input
-          v-model="form.patentTitle"
-          placeholder="输入专利标题"
-          clearable
-        />
+          @change="handlePatentChange"
+          :loading="patentStore.loading"
+        >
+          <el-option
+            v-for="patent in patentList"
+            :key="patent.id"
+            :label="`${patent.patentNumber} - ${patent.title}`"
+            :value="patent.id"
+          >
+            <div class="patent-option">
+              <div class="patent-number">{{ patent.patentNumber }}</div>
+              <div class="patent-title">{{ patent.title }}</div>
+            </div>
+          </el-option>
+        </el-select>
+        <div class="form-tip">
+          从专利列表中选择要添加费用的专利
+          <span v-if="patentList.length === 0" style="color: #f56c6c">
+            (正在加载专利列表...)
+          </span>
+        </div>
       </el-form-item>
 
       <el-form-item label="费用类型" prop="feeType">
@@ -75,20 +89,6 @@
         />
       </el-form-item>
 
-      <el-form-item label="状态" prop="status">
-        <el-select
-          v-model="form.status"
-          placeholder="选择状态"
-          style="width: 100%"
-        >
-          <el-option label="待缴费" value="pending" />
-          <el-option label="已缴费" value="paid" />
-          <el-option label="逾期" value="overdue" />
-          <el-option label="减免" value="waived" />
-          <el-option label="已退款" value="refunded" />
-        </el-select>
-      </el-form-item>
-
       <el-form-item label="描述" prop="description">
         <el-input
           v-model="form.description"
@@ -98,34 +98,15 @@
         />
       </el-form-item>
 
-      <el-form-item label="收据号" prop="receiptNumber">
-        <el-input
-          v-model="form.receiptNumber"
-          placeholder="输入收据号"
-          clearable
-        />
-      </el-form-item>
-
-      <el-form-item label="支付方式" prop="paymentMethod">
-        <el-select
-          v-model="form.paymentMethod"
-          placeholder="选择支付方式"
-          style="width: 100%"
-        >
-          <el-option label="银行转账" value="bank_transfer" />
-          <el-option label="在线支付" value="online_payment" />
-          <el-option label="现金" value="cash" />
-          <el-option label="支票" value="check" />
-          <el-option label="其他" value="other" />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="备注" prop="notes">
-        <el-input
-          v-model="form.notes"
-          type="textarea"
-          :rows="2"
-          placeholder="输入备注信息"
+      <el-form-item label="费用凭证">
+        <AdvancedFileUpload
+          v-model="voucherFiles"
+          :multiple="true"
+          :accept="'.pdf,.jpg,.jpeg,.png,.doc,.docx'"
+          :max-file-size="10"
+          :auto-upload="false"
+          hint="上传费用凭证文件（发票、收据等）"
+          @file-uploaded="handleVoucherUploaded"
         />
       </el-form-item>
 
@@ -140,9 +121,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { ref, reactive, onMounted, computed } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
-import type { FeeType, FeeStatus } from "@/types/fee";
+import type { FeeType } from "@/types/fee";
+import { usePatentStore } from "@/stores/patent";
+import { ElMessage } from "element-plus";
+import AdvancedFileUpload from "@/components/AdvancedFileUpload.vue";
 
 const props = defineProps<{
   initialData?: any;
@@ -156,29 +140,69 @@ const emit = defineEmits<{
 const formRef = ref<FormInstance>();
 const loading = ref(false);
 
+// 专利store
+const patentStore = usePatentStore();
+const patentList = computed(() => patentStore.patents || []);
+
 const form = reactive({
-  patentId: 0,
-  patentNumber: "",
-  patentTitle: "",
+  patentId: undefined as number | undefined,
   feeType: "" as FeeType,
   amount: 0,
   currency: "CNY",
   dueDate: "",
-  status: "pending" as FeeStatus,
   description: "",
-  receiptNumber: "",
-  paymentMethod: "",
-  notes: "",
 });
+
+// 费用凭证文件
+const voucherFiles = ref<any[]>([]);
 
 // 如果有初始数据，填充表单
 if (props.initialData) {
   Object.assign(form, props.initialData);
 }
 
+// 加载专利列表
+onMounted(async () => {
+  try {
+    console.log("开始加载专利列表...");
+    console.log("patentStore.patents 初始值:", patentStore.patents);
+
+    await patentStore.fetchPatents();
+    console.log("fetchPatents 完成");
+    console.log("patentStore.patents 更新后:", patentStore.patents);
+    console.log("patentList 计算属性值:", patentList.value);
+    console.log("专利列表长度:", patentList.value.length);
+
+    // 检查每个专利的详细信息
+    if (patentList.value.length > 0) {
+      console.log("第一个专利详情:", patentList.value[0]);
+      console.log("第一个专利ID类型:", typeof patentList.value[0].id);
+    }
+  } catch (error) {
+    console.error("加载专利列表失败:", error);
+    ElMessage.error("加载专利列表失败");
+  }
+});
+
+// 处理专利选择变化
+const handlePatentChange = (patentId: number) => {
+  console.log("专利选择变化，patentId:", patentId);
+  const selectedPatent = patentList.value.find((p) => p.id === patentId);
+  if (selectedPatent) {
+    console.log("选择的专利:", selectedPatent);
+    // 可以在这里预填充一些字段，比如专利标题等
+  } else {
+    console.warn("未找到选中的专利，patentId:", patentId);
+  }
+};
+
+// 处理费用凭证上传
+const handleVoucherUploaded = (file: any) => {
+  console.log("费用凭证上传完成:", file);
+};
+
 const rules: FormRules = {
-  patentNumber: [{ required: true, message: "请输入专利号", trigger: "blur" }],
-  patentTitle: [{ required: true, message: "请输入专利标题", trigger: "blur" }],
+  patentId: [{ required: true, message: "请选择专利", trigger: "change" }],
   feeType: [{ required: true, message: "请选择费用类型", trigger: "change" }],
   amount: [
     { required: true, message: "请输入金额", trigger: "blur" },
@@ -186,7 +210,6 @@ const rules: FormRules = {
   ],
   currency: [{ required: true, message: "请选择货币", trigger: "change" }],
   dueDate: [{ required: true, message: "请选择到期日期", trigger: "change" }],
-  status: [{ required: true, message: "请选择状态", trigger: "change" }],
   description: [{ required: true, message: "请输入描述", trigger: "blur" }],
 };
 
@@ -197,10 +220,45 @@ const handleSubmit = async () => {
     await formRef.value.validate();
     loading.value = true;
 
-    // 生成专利ID（实际应用中应该从专利列表中选择）
-    form.patentId = Date.now();
+    // 验证必需字段
+    if (!form.patentId || form.patentId <= 0) {
+      ElMessage.error("请选择专利");
+      return;
+    }
 
-    emit("submit", { ...form });
+    if (!form.feeType) {
+      ElMessage.error("请选择费用类型");
+      return;
+    }
+
+    if (!form.amount || form.amount <= 0) {
+      ElMessage.error("请输入有效的金额");
+      return;
+    }
+
+    if (!form.dueDate) {
+      ElMessage.error("请选择到期日期");
+      return;
+    }
+
+    // 准备发送给后端的数据
+    const submitData = {
+      patentId: form.patentId,
+      feeType: form.feeType,
+      type: form.feeType, // 兼容后端字段名
+      amount: form.amount,
+      currency: form.currency,
+      dueDate: form.dueDate,
+      description: form.description || "",
+      notes: "", // 添加notes字段
+      vouchers: voucherFiles.value, // 包含费用凭证文件
+    };
+
+    console.log("发送的费用数据:", submitData);
+    emit("submit", submitData);
+
+    // 重置凭证文件
+    voucherFiles.value = [];
   } catch (error) {
     console.error("表单验证失败:", error);
   } finally {
@@ -209,6 +267,7 @@ const handleSubmit = async () => {
 };
 
 const handleCancel = () => {
+  voucherFiles.value = [];
   emit("cancel");
 };
 </script>
@@ -220,5 +279,30 @@ const handleCancel = () => {
 
 .el-form-item {
   margin-bottom: 20px;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+.patent-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.patent-number {
+  font-weight: 600;
+  color: #409eff;
+  font-size: 14px;
+}
+
+.patent-title {
+  color: #606266;
+  font-size: 12px;
+  line-height: 1.4;
 }
 </style>

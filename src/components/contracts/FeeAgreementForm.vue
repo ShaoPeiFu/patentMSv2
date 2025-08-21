@@ -45,8 +45,9 @@
         v-model="form.feeType"
         placeholder="请选择费用类型"
         style="width: 100%"
+        clearable
       >
-        <el-option label="按小时" value="hourly" />
+        <el-option label="按小时计费" value="hourly" />
         <el-option label="固定费用" value="fixed" />
         <el-option label="风险代理" value="contingency" />
         <el-option label="混合模式" value="hybrid" />
@@ -172,6 +173,11 @@ const form = ref({
   nextPaymentDate: "",
   description: "",
 });
+
+// 确保费用类型有默认值
+if (!form.value.feeType) {
+  form.value.feeType = "fixed";
+}
 
 const rules: FormRules = {
   description: [{ required: true, message: "请输入协议描述", trigger: "blur" }],

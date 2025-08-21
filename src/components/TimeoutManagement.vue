@@ -139,18 +139,24 @@
         :data="filteredTimeouts"
         stripe
         @selection-change="handleSelectionChange"
+        class="timeout-table"
       >
         <el-table-column type="selection" width="55" />
 
-        <el-table-column prop="processId" label="流程ID" width="180" />
+        <el-table-column
+          prop="processId"
+          label="流程ID"
+          width="180"
+          align="center"
+        />
 
-        <el-table-column label="工作流" width="150">
+        <el-table-column label="工作流" width="150" align="center">
           <template #default="{ row }">
             {{ getProcessWorkflowName(row.processId) }}
           </template>
         </el-table-column>
 
-        <el-table-column label="当前步骤" width="120">
+        <el-table-column label="当前步骤" width="120" align="center">
           <template #default="{ row }">
             {{ getStepName(row.stepId) }}
           </template>
@@ -160,6 +166,7 @@
           prop="expectedCompletionTime"
           label="预期完成时间"
           width="160"
+          align="center"
         >
           <template #default="{ row }">
             {{ formatDate(row.expectedCompletionTime) }}
@@ -170,6 +177,7 @@
           prop="actualTimeoutTime"
           label="实际超时时间"
           width="160"
+          align="center"
         >
           <template #default="{ row }">
             {{ formatDate(row.actualTimeoutTime) }}
@@ -206,43 +214,59 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button
-              v-if="!row.isResolved"
-              size="small"
-              @click="sendNotification(row)"
-            >
-              发送通知
-            </el-button>
+            <div class="action-buttons">
+              <el-button
+                v-if="!row.isResolved"
+                size="small"
+                @click="sendNotification(row)"
+              >
+                发送通知
+              </el-button>
+              <div v-else class="action-placeholder"></div>
 
-            <el-button
-              v-if="!row.isResolved && row.action === 'escalate'"
-              size="small"
-              type="warning"
-              @click="escalateProcess(row)"
-            >
-              升级处理
-            </el-button>
+              <el-button
+                v-if="!row.isResolved && row.action === 'escalate'"
+                size="small"
+                type="warning"
+                @click="escalateProcess(row)"
+              >
+                升级处理
+              </el-button>
+              <div v-else class="action-placeholder"></div>
 
-            <el-button
-              v-if="!row.isResolved"
-              size="small"
-              type="success"
-              @click="resolveTimeout(row)"
-            >
-              标记解决
-            </el-button>
+              <el-button
+                v-if="!row.isResolved"
+                size="small"
+                type="success"
+                @click="resolveTimeout(row)"
+              >
+                标记解决
+              </el-button>
+              <div v-else class="action-placeholder"></div>
 
-            <el-button size="small" @click="viewTimeoutDetail(row)">
-              查看详情
-            </el-button>
+              <el-button size="small" @click="viewTimeoutDetail(row)">
+                查看详情
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
 
       <div v-if="filteredTimeouts.length === 0" class="empty-state">
-        <el-empty description="暂无超时记录" />
+        <el-empty description="暂无超时记录">
+          <template #description>
+            <span>暂无超时记录</span>
+            <br />
+            <small style="color: #909399"
+              >点击"检查超时"按钮来检查是否有新的超时流程</small
+            >
+          </template>
+          <el-button type="primary" @click="checkAllTimeouts">
+            检查超时
+          </el-button>
+        </el-empty>
       </div>
     </el-card>
 
@@ -449,14 +473,28 @@ const notifiedTimeouts = computed(() =>
   documentStore.approvalTimeouts.filter((t) => t.action === "notify")
 );
 
-const availableUsers = computed(() =>
-  userStore.users.filter((u) => u.role === "admin" || u.role === "reviewer")
-);
+const availableUsers = computed(() => {
+  const users = userStore.users;
+  if (!Array.isArray(users)) {
+    console.warn("users不是数组:", users);
+    return [];
+  }
+  return users.filter((u) => u.role === "admin" || u.role === "reviewer");
+});
 
 // 方法
 const checkAllTimeouts = () => {
-  const overdueProcesses = documentStore.checkOverdueProcesses();
-  ElMessage.info(`检查完成，发现 ${overdueProcesses.length} 个超时流程`);
+  try {
+    const overdueProcesses = documentStore.checkOverdueProcesses();
+    if (overdueProcesses.length > 0) {
+      ElMessage.info(`检查完成，发现 ${overdueProcesses.length} 个超时流程`);
+    } else {
+      ElMessage.success("检查完成，没有发现超时流程");
+    }
+  } catch (error) {
+    console.error("检查超时流程失败:", error);
+    ElMessage.error("检查超时流程失败");
+  }
 };
 
 const refreshTimeouts = () => {
@@ -526,7 +564,7 @@ const batchNotify = () => {
     });
 };
 
-const sendNotification = (timeout: ApprovalTimeout) => {
+const sendNotification = (_timeout: ApprovalTimeout) => {
   ElMessageBox.confirm("确定要发送超时通知吗？", "发送通知", {
     confirmButtonText: "发送",
     cancelButtonText: "取消",
@@ -535,11 +573,10 @@ const sendNotification = (timeout: ApprovalTimeout) => {
     .then(() => {
       // 这里应该调用实际的通知发送逻辑
       // 更新通知次数
-      const updatedTimeout = {
-        ...timeout,
-        notificationsSent: timeout.notificationsSent + 1,
-      };
-      // 这里需要实现updateTimeout方法
+      // documentStore.updateTimeout(timeout.id, {
+      //   ...timeout,
+      //   notificationsSent: timeout.notificationsSent + 1,
+      // });
       ElMessage.success("通知已发送");
     })
     .catch(() => {
@@ -684,6 +721,12 @@ const formatDate = (dateString: string) => {
 onMounted(() => {
   // 页面加载时检查超时
   checkAllTimeouts();
+
+  // 如果没有数据，尝试初始化
+  if (documentStore.approvalTimeouts.length === 0) {
+    console.log("没有超时数据，尝试初始化示例数据");
+    // 这里可以调用store的初始化方法
+  }
 });
 </script>
 
@@ -721,6 +764,8 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease;
+  height: 100%;
+  min-height: 120px;
 }
 
 .stat-card:hover {
@@ -737,6 +782,7 @@ onMounted(() => {
   margin-right: 16px;
   font-size: 24px;
   color: white;
+  flex-shrink: 0;
 }
 
 .stat-icon.unresolved {
@@ -757,6 +803,10 @@ onMounted(() => {
 
 .stat-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
 }
 
 .stat-number {
@@ -765,17 +815,63 @@ onMounted(() => {
   color: #2c3e50;
   line-height: 1;
   margin-bottom: 4px;
+  text-align: left;
 }
 
 .stat-label {
   color: #7f8c8d;
   font-size: 0.9em;
   font-weight: 500;
+  text-align: left;
 }
 
-.filter-card,
-.timeout-list {
+.filter-card {
   margin-bottom: 20px;
+}
+
+.filter-card .el-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.filter-card .el-form-item {
+  margin-bottom: 0;
+  margin-right: 0;
+}
+
+.filter-card .el-form-item__label {
+  font-weight: 500;
+  color: #606266;
+}
+
+.timeout-table {
+  width: 100%;
+}
+
+.timeout-table .el-table__header-wrapper {
+  background-color: #f5f7fa;
+}
+
+.timeout-table .el-table__header th {
+  background-color: #f5f7fa;
+  color: #606266;
+  font-weight: 600;
+  text-align: center;
+}
+
+.timeout-table .el-table__body td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.timeout-table .el-table__body td:first-child {
+  text-align: center;
+}
+
+.timeout-table .el-table__body td:last-child {
+  text-align: center;
 }
 
 .list-header {
@@ -787,11 +883,23 @@ onMounted(() => {
 .batch-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.batch-actions .el-button {
+  white-space: nowrap;
 }
 
 .empty-state {
   text-align: center;
   padding: 40px;
+  background-color: #fafafa;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.empty-state .el-empty__description {
+  margin-top: 16px;
 }
 
 .timeout-detail {
@@ -809,13 +917,102 @@ onMounted(() => {
 
 .action-buttons {
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.action-buttons .el-button + .el-button {
+  margin-left: 0;
+}
+
+.action-buttons-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.action-btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 8px 12px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+}
+
+/* 占位符样式，保持布局一致 */
+.action-placeholder {
+  height: 32px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* 强制覆盖Element Plus的默认样式 */
+.el-table .el-table__cell .action-buttons-container,
+.el-table .el-table__cell .action-buttons-container * {
+  box-sizing: border-box !important;
+}
+
+/* 确保操作列内容不会溢出 */
+.el-table .el-table__cell .action-buttons-container {
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .timeout-stats .el-col {
     margin-bottom: 16px;
+  }
+
+  .stat-card {
+    min-height: 100px;
+  }
+
+  .stat-number {
+    font-size: 2em;
+  }
+}
+
+@media (max-width: 768px) {
+  .timeout-stats .el-col {
+    margin-bottom: 12px;
+  }
+
+  .stat-card {
+    padding: 16px;
+    min-height: 90px;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    margin-right: 12px;
+  }
+
+  .stat-number {
+    font-size: 1.8em;
+  }
+
+  .filter-card .el-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-card .el-form-item {
+    width: 100%;
   }
 }
 
@@ -846,6 +1043,15 @@ onMounted(() => {
 
   .action-buttons {
     flex-direction: column;
+  }
+
+  .action-buttons-container {
+    gap: 6px;
+  }
+
+  .action-btn {
+    font-size: 12px;
+    padding: 6px 8px;
   }
 }
 </style>

@@ -48,23 +48,23 @@
     <el-form-item label="评估标准">
       <div class="evaluation-criteria">
         <div class="criteria-item">
-          <label>响应性</label>
+          <label for="responsiveness">响应性</label>
           <el-rate v-model="form.criteria.responsiveness" :max="5" show-score />
         </div>
         <div class="criteria-item">
-          <label>服务质量</label>
+          <label for="quality">服务质量</label>
           <el-rate v-model="form.criteria.quality" :max="5" show-score />
         </div>
         <div class="criteria-item">
-          <label>沟通能力</label>
+          <label for="communication">沟通能力</label>
           <el-rate v-model="form.criteria.communication" :max="5" show-score />
         </div>
         <div class="criteria-item">
-          <label>及时性</label>
+          <label for="timeliness">及时性</label>
           <el-rate v-model="form.criteria.timeliness" :max="5" show-score />
         </div>
         <div class="criteria-item">
-          <label>成本效益</label>
+          <label for ="cost_efficiency">成本效益</label>
           <el-rate
             v-model="form.criteria.cost_efficiency"
             :max="5"
@@ -197,7 +197,36 @@ watch(
   () => props.initialData,
   (newData) => {
     if (newData) {
-      Object.assign(form.value, newData);
+      // 处理criteria字段，确保它是对象而不是JSON字符串
+      const processedData = { ...newData };
+      
+      if (typeof processedData.criteria === 'string') {
+        try {
+          processedData.criteria = JSON.parse(processedData.criteria);
+        } catch (error) {
+          console.warn('解析criteria JSON失败，使用默认值:', error);
+          processedData.criteria = {
+            responsiveness: 0,
+            quality: 0,
+            communication: 0,
+            timeliness: 0,
+            cost_efficiency: 0,
+          };
+        }
+      }
+      
+      // 确保criteria对象包含所有必要的属性
+      if (processedData.criteria && typeof processedData.criteria === 'object') {
+        processedData.criteria = {
+          responsiveness: processedData.criteria.responsiveness || 0,
+          quality: processedData.criteria.quality || 0,
+          communication: processedData.criteria.communication || 0,
+          timeliness: processedData.criteria.timeliness || 0,
+          cost_efficiency: processedData.criteria.cost_efficiency || 0,
+        };
+      }
+      
+      Object.assign(form.value, processedData);
     }
   },
   { immediate: true }

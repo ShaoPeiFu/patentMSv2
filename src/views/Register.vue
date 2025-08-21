@@ -211,30 +211,12 @@ const registerRules: FormRules = {
       message: "用户名只能包含字母、数字和下划线",
       trigger: "blur",
     },
-    {
-      validator: (rule, value, callback) => {
-        if (value && userStore.isUsernameExists(value)) {
-          callback(new Error("用户名已存在"));
-        } else {
-          callback();
-        }
-      },
-      trigger: "blur",
-    },
+    // 用户名唯一性检查在注册时由后端验证，这里只做格式验证
   ],
   email: [
     { required: true, message: "请输入邮箱", trigger: "blur" },
     { type: "email", message: "请输入正确的邮箱格式", trigger: "blur" },
-    {
-      validator: (rule, value, callback) => {
-        if (value && userStore.isEmailExists(value)) {
-          callback(new Error("邮箱已被注册"));
-        } else {
-          callback();
-        }
-      },
-      trigger: "blur",
-    },
+    // 邮箱唯一性检查在注册时由后端验证，这里只做格式验证
   ],
   password: [
     { required: true, message: "请输入密码", trigger: "blur" },
@@ -248,7 +230,7 @@ const registerRules: FormRules = {
   confirmPassword: [
     { required: true, message: "请确认密码", trigger: "blur" },
     {
-      validator: (rule, value, callback) => {
+      validator: (_, value, callback) => {
         if (value !== registerForm.password) {
           callback(new Error("两次输入的密码不一致"));
         } else {
@@ -313,12 +295,15 @@ const goHome = () => {
 .register-container {
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  padding-top: 40px;
+  padding-bottom: 40px;
+  height: 100vh;
 }
 
 /* 背景动画 */
@@ -415,15 +400,18 @@ const goHome = () => {
 }
 
 .register-card {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 20px;
   padding: 40px;
   width: 500px;
   max-width: 90vw;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   animation: slideInUp 0.8s ease-out;
+  margin: 20px auto;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
 }
 
 @keyframes slideInUp {
@@ -475,7 +463,7 @@ const goHome = () => {
 
 .logo-text h1 {
   margin: 0 0 5px 0;
-  color: white;
+  color: #1d1d1f;
   font-size: 2em;
   font-weight: 600;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -483,7 +471,7 @@ const goHome = () => {
 
 .logo-text p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.8);
   font-size: 1.1em;
 }
 
@@ -492,65 +480,67 @@ const goHome = () => {
 }
 
 .modern-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   transition: all 0.3s ease;
 }
 
 .modern-input :deep(.el-input__wrapper:hover) {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .modern-input :deep(.el-input__wrapper.is-focus) {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 1);
   border-color: #667eea;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .modern-input :deep(.el-input__inner) {
-  color: white;
+  color: #1d1d1f;
+  font-weight: 500;
 }
 
 .modern-input :deep(.el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(29, 29, 31, 0.6);
 }
 
 .modern-input :deep(.el-input__prefix) {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.8);
 }
 
 .modern-select :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   transition: all 0.3s ease;
 }
 
 .modern-select :deep(.el-input__wrapper:hover) {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .modern-select :deep(.el-input__wrapper.is-focus) {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 1);
   border-color: #667eea;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .modern-select :deep(.el-input__inner) {
-  color: white;
+  color: #1d1d1f;
+  font-weight: 500;
 }
 
 .modern-select :deep(.el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(29, 29, 31, 0.6);
 }
 
 .modern-checkbox :deep(.el-checkbox__label) {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.9);
 }
 
 .modern-checkbox :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
@@ -588,16 +578,16 @@ const goHome = () => {
   align-items: center;
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(29, 29, 31, 0.2);
 }
 
 .footer-text {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.8);
   font-size: 14px;
 }
 
 .footer-link {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(29, 29, 31, 0.8);
   text-decoration: none;
   display: flex;
   align-items: center;
@@ -607,7 +597,7 @@ const goHome = () => {
 }
 
 .footer-link:hover {
-  color: white;
+  color: #1d1d1f;
   transform: translateY(-1px);
 }
 

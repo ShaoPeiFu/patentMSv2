@@ -197,7 +197,7 @@ const passwordRules: FormRules = {
   confirmPassword: [
     { required: true, message: "请确认新密码", trigger: "blur" },
     {
-      validator: (rule, value, callback) => {
+      validator: (_, value, callback) => {
         if (value !== passwordForm.newPassword) {
           callback(new Error("两次输入的密码不一致"));
         } else {
@@ -230,7 +230,14 @@ const handleUpdate = async () => {
     await profileFormRef.value.validate();
     loading.value = true;
 
-    await userStore.updateProfile({
+    // 使用当前登录用户的ID，而不是硬编码的ID
+    const currentUserId = userStore.currentUser?.id;
+    if (!currentUserId) {
+      ElMessage.error("用户未登录或用户信息不完整");
+      return;
+    }
+
+    await userStore.updateProfile(currentUserId, {
       email: profileForm.email,
       realName: profileForm.realName,
       phone: profileForm.phone,
@@ -261,7 +268,15 @@ const handleChangePassword = async () => {
     await passwordFormRef.value.validate();
     passwordLoading.value = true;
 
+    // 使用当前登录用户的ID，而不是硬编码的ID
+    const currentUserId = userStore.currentUser?.id;
+    if (!currentUserId) {
+      ElMessage.error("用户未登录或用户信息不完整");
+      return;
+    }
+
     await userStore.changePassword(
+      currentUserId,
       passwordForm.oldPassword,
       passwordForm.newPassword
     );

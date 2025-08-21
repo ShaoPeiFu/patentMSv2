@@ -12,10 +12,6 @@
           <el-icon><Operation /></el-icon>
           批量操作
         </el-button>
-        <el-button @click="showCalendarView = true">
-          <el-icon><Calendar /></el-icon>
-          日历视图
-        </el-button>
       </div>
     </div>
 
@@ -68,7 +64,9 @@
                 <el-icon><Bell /></el-icon>
               </div>
               <div class="stat-info">
-                <div class="stat-number">{{ urgentReminders.length }}</div>
+                <div class="stat-number">
+                  {{ urgentReminders?.length || 0 }}
+                </div>
                 <div class="stat-label">紧急提醒</div>
               </div>
             </div>
@@ -152,88 +150,116 @@
               stripe
               style="width: 100%"
             >
-              <el-table-column prop="patentNumber" label="专利号" width="150" />
+              <el-table-column prop="patentNumber" label="专利号" width="150">
+                <template #default="{ row }">
+                  {{ row?.patentNumber || "未知" }}
+                </template>
+              </el-table-column>
               <el-table-column
                 prop="patentTitle"
                 label="专利标题"
                 min-width="200"
-              />
+              >
+                <template #default="{ row }">
+                  {{ row?.patentTitle || "未知" }}
+                </template>
+              </el-table-column>
               <el-table-column prop="deadlineType" label="期限类型" width="120">
                 <template #default="{ row }">
-                  <el-tag :type="getDeadlineTypeTag(row.deadlineType)">
-                    {{ getDeadlineTypeText(row.deadlineType) }}
+                  <el-tag :type="getDeadlineTypeTag(row?.deadlineType)">
+                    {{ getDeadlineTypeText(row?.deadlineType) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="deadlineDate"
-                label="期限日期"
-                width="120"
-              />
+              <el-table-column prop="deadlineDate" label="期限日期" width="120">
+                <template #default="{ row }">
+                  {{ formatDate(row?.deadlineDate) }}
+                </template>
+              </el-table-column>
               <el-table-column
                 prop="daysUntilDeadline"
                 label="剩余天数"
                 width="100"
               >
                 <template #default="{ row }">
-                  <span :class="getDaysClass(calculateDaysUntilDeadline(row.deadlineDate))">
+                  <span
+                    :class="
+                      getDaysClass(
+                        calculateDaysUntilDeadline(row?.deadlineDate)
+                      )
+                    "
+                  >
                     {{
-                      calculateDaysUntilDeadline(row.deadlineDate) > 0
-                        ? `${calculateDaysUntilDeadline(row.deadlineDate)}天`
-                        : `逾期${Math.abs(calculateDaysUntilDeadline(row.deadlineDate))}天`
+                      calculateDaysUntilDeadline(row?.deadlineDate) > 0
+                        ? `${calculateDaysUntilDeadline(row?.deadlineDate)}天`
+                        : `逾期${Math.abs(
+                            calculateDaysUntilDeadline(row?.deadlineDate)
+                          )}天`
                     }}
                   </span>
                 </template>
               </el-table-column>
               <el-table-column prop="status" label="状态" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="getStatusType(row.status)">
-                    {{ getStatusText(row.status) }}
+                  <el-tag :type="getStatusType(row?.status)">
+                    {{ getStatusText(row?.status) }}
                   </el-tag>
                 </template>
               </el-table-column>
               <el-table-column prop="riskLevel" label="风险等级" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="getRiskType(row.riskLevel)">
-                    {{ getRiskText(row.riskLevel) }}
+                  <el-tag :type="getRiskType(row?.riskLevel)">
+                    {{ getRiskText(row?.riskLevel) }}
                   </el-tag>
                 </template>
               </el-table-column>
               <el-table-column prop="priority" label="优先级" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="getPriorityType(row.priority)">
-                    {{ getPriorityText(row.priority) }}
+                  <el-tag :type="getPriorityType(row?.priority)">
+                    {{ getPriorityText(row?.priority) }}
                   </el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="200" fixed="right">
                 <template #default="{ row }">
-                  <el-button size="small" @click="editDeadline(row)"
-                    >编辑</el-button
-                  >
-                  <el-button
-                    size="small"
-                    type="success"
-                    v-if="row.status === 'pending'"
-                    @click="completeDeadline(row.id)"
-                  >
-                    标记完成
-                  </el-button>
-                  <el-button
-                    size="small"
-                    type="warning"
-                    v-if="row.status === 'pending'"
-                    @click="extendDeadline(row.id)"
-                  >
-                    延期
-                  </el-button>
-                  <el-button
-                    size="small"
-                    type="danger"
-                    @click="deleteDeadline(row.id)"
-                  >
-                    删除
-                  </el-button>
+                  <div class="action-buttons-container">
+                    <el-button
+                      size="small"
+                      @click="editDeadline(row)"
+                      class="action-btn"
+                    >
+                      编辑
+                    </el-button>
+
+                    <el-button
+                      size="small"
+                      type="success"
+                      v-if="row?.status === 'pending'"
+                      @click="completeDeadline(row?.id)"
+                      class="action-btn"
+                    >
+                      标记完成
+                    </el-button>
+
+                    <el-button
+                      size="small"
+                      type="warning"
+                      v-if="row?.status === 'pending'"
+                      @click="extendDeadline(row?.id)"
+                      class="action-btn"
+                    >
+                      延期
+                    </el-button>
+
+                    <el-button
+                      size="small"
+                      type="danger"
+                      @click="deleteDeadline(row?.id)"
+                      class="action-btn"
+                    >
+                      删除
+                    </el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -244,13 +270,16 @@
         <el-tab-pane label="智能提醒" name="reminders">
           <div class="tab-content">
             <div class="reminders-header">
-              <h3>智能提醒 ({{ urgentReminders.length }} 个紧急提醒)</h3>
-              <el-button @click="markAllRemindersAsRead"
-                >全部标记为已读</el-button
+              <h3>智能提醒 ({{ urgentReminders?.length || 0 }} 个紧急提醒)</h3>
+              <el-button
+                @click="markAllRemindersAsRead"
+                :disabled="!smartReminders?.length"
               >
+                全部标记为已读
+              </el-button>
             </div>
 
-            <div class="reminders-list">
+            <div v-if="smartReminders?.length" class="reminders-list">
               <el-card
                 v-for="reminder in smartReminders"
                 :key="reminder.id"
@@ -259,11 +288,15 @@
               >
                 <div class="reminder-content">
                   <div class="reminder-info">
-                    <h4>{{ reminder.patentTitle }}</h4>
-                    <p class="patent-number">{{ reminder.patentNumber }}</p>
-                    <p class="reminder-message">{{ reminder.message }}</p>
+                    <h4>{{ reminder.patentTitle || "未知专利" }}</h4>
+                    <p class="patent-number">
+                      {{ reminder.patentNumber || "未知专利号" }}
+                    </p>
+                    <p class="reminder-message">
+                      {{ reminder.message || "提醒消息" }}
+                    </p>
                     <p class="scheduled-date">
-                      提醒时间: {{ reminder.scheduledDate }}
+                      提醒时间: {{ formatDate(reminder.scheduledDate) }}
                       <span
                         class="reminder-status"
                         :class="reminder.reminderLevel"
@@ -291,6 +324,10 @@
                 </div>
               </el-card>
             </div>
+
+            <div v-else class="empty-state">
+              <el-empty description="暂无智能提醒数据" />
+            </div>
           </div>
         </el-tab-pane>
 
@@ -307,7 +344,7 @@
               </el-button>
             </div>
 
-            <div class="batch-operations">
+            <div v-if="batchOperations?.length" class="batch-operations">
               <el-table :data="batchOperations" stripe>
                 <el-table-column
                   prop="operationType"
@@ -315,34 +352,34 @@
                   width="120"
                 >
                   <template #default="{ row }">
-                    <el-tag :type="getBatchOperationType(row.operationType)">
-                      {{ getBatchOperationText(row.operationType) }}
+                    <el-tag :type="getBatchOperationType(row?.operationType)">
+                      {{ getBatchOperationText(row?.operationType) }}
                     </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column prop="status" label="状态" width="100">
                   <template #default="{ row }">
-                    <el-tag :type="getBatchStatusType(row.status)">
-                      {{ getBatchStatusText(row.status) }}
+                    <el-tag :type="getBatchStatusType(row?.status)">
+                      {{ getBatchStatusText(row?.status) }}
                     </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column prop="progress" label="进度" width="200">
                   <template #default="{ row }">
-                    <el-progress :percentage="row.progress" />
+                    <el-progress :percentage="row?.progress || 0" />
                   </template>
                 </el-table-column>
-                <el-table-column
-                  prop="createdAt"
-                  label="创建时间"
-                  width="150"
-                />
-                <el-table-column label="操作" width="150">
+                <el-table-column prop="createdAt" label="创建时间" width="150">
+                  <template #default="{ row }">
+                    {{ formatDate(row?.createdAt) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="180">
                   <template #default="{ row }">
                     <el-button
                       size="small"
-                      @click="executeBatchOperation(row.id)"
-                      v-if="row.status === 'pending'"
+                      @click="executeBatchOperation(row?.id)"
+                      v-if="row?.status === 'pending'"
                     >
                       执行
                     </el-button>
@@ -352,6 +389,10 @@
                   </template>
                 </el-table-column>
               </el-table>
+            </div>
+
+            <div v-else class="empty-state">
+              <el-empty description="暂无批量操作数据" />
             </div>
           </div>
         </el-tab-pane>
@@ -389,20 +430,6 @@
         @cancel="showBatchOperationDialog = false"
       />
     </el-dialog>
-
-    <!-- 日历视图对话框 -->
-    <el-dialog
-      v-model="showCalendarView"
-      title="日历视图"
-      width="80%"
-      top="5vh"
-    >
-      <CalendarView
-        v-if="showCalendarView"
-        :events="calendarEvents"
-        @event-click="handleCalendarEventClick"
-      />
-    </el-dialog>
   </div>
 </template>
 
@@ -410,10 +437,10 @@
 import { ref, computed, onMounted } from "vue";
 import { useDeadlineStore } from "@/stores/deadline";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { formatDate } from "@/utils/dateUtils";
 import {
   Plus,
   Operation,
-  Calendar,
   Warning,
   Clock,
   Check,
@@ -428,9 +455,14 @@ import type {
 import DeadlineForm from "@/components/deadlines/DeadlineForm.vue";
 import BatchOperationForm from "@/components/deadlines/BatchOperationForm.vue";
 
-import CalendarView from "@/components/deadlines/CalendarView.vue";
+import deadlineAPI from "@/services/deadlineAPI";
 
 const deadlineStore = useDeadlineStore();
+
+// 调试信息
+console.log("deadlineStore created:", deadlineStore);
+console.log("deadlineStore methods:", Object.keys(deadlineStore));
+console.log("deadlineStore.initializeStore:", deadlineStore.initializeStore);
 
 // 响应式数据
 const activeTab = ref("deadlines");
@@ -439,7 +471,6 @@ const showAddDeadlineDialog = ref(false);
 const showEditDeadlineDialog = ref(false);
 const showBatchOperationDialog = ref(false);
 
-const showCalendarView = ref(false);
 const editingDeadline = ref<DeadlineRecord | null>(null);
 
 // 搜索表单
@@ -451,40 +482,89 @@ const searchForm = ref({
 });
 
 // 计算属性
-const statistics = computed(() => deadlineStore.statistics);
-const deadlineRecords = computed(() => deadlineStore.deadlineRecords);
-const smartReminders = computed(() => deadlineStore.smartReminders);
-const calendarEvents = computed(() => deadlineStore.calendarEvents);
+const statistics = computed(() => {
+  try {
+    const storeStats = deadlineStore.statistics;
+    if (storeStats && typeof storeStats === "object") {
+      return storeStats;
+    }
+  } catch (error) {
+    console.error("计算统计信息时出错:", error);
+  }
 
-const batchOperations = computed(() => deadlineStore.batchOperations);
-const urgentReminders = computed(() => deadlineStore.urgentReminders);
+  // 返回默认的统计信息结构
+  return {
+    total: deadlineRecords.value?.length || 0,
+    pending:
+      deadlineRecords.value?.filter((d: any) => d?.status === "pending")
+        ?.length || 0,
+    completed:
+      deadlineRecords.value?.filter((d: any) => d?.status === "completed")
+        ?.length || 0,
+    overdue:
+      deadlineRecords.value?.filter((d: any) => d?.status === "overdue")
+        ?.length || 0,
+    cancelled:
+      deadlineRecords.value?.filter((d: any) => d?.status === "cancelled")
+        ?.length || 0,
+    extended:
+      deadlineRecords.value?.filter((d: any) => d?.status === "extended")
+        ?.length || 0,
+    byType: {
+      application: { count: 0, overdue: 0, completed: 0 },
+      examination: { count: 0, overdue: 0, completed: 0 },
+      maintenance: { count: 0, overdue: 0, completed: 0 },
+      renewal: { count: 0, overdue: 0, completed: 0 },
+      priority: { count: 0, overdue: 0, completed: 0 },
+      extension: { count: 0, overdue: 0, completed: 0 },
+      correction: { count: 0, overdue: 0, completed: 0 },
+      opposition: { count: 0, overdue: 0, completed: 0 },
+      appeal: { count: 0, overdue: 0, completed: 0 },
+      other: { count: 0, overdue: 0, completed: 0 },
+    },
+    byRiskLevel: {
+      low: { count: 0, overdue: 0 },
+      medium: { count: 0, overdue: 0 },
+      high: { count: 0, overdue: 0 },
+      critical: { count: 0, overdue: 0 },
+    },
+    upcomingDeadlines: [],
+    overdueDeadlines: [],
+    highRiskDeadlines: [],
+  };
+});
+
+const deadlineRecords = computed(() => deadlineStore.deadlineRecords || []);
+const smartReminders = computed(() => deadlineStore.smartReminders || []);
+const batchOperations = computed(() => deadlineStore.batchOperations || []);
+const urgentReminders = computed(() => deadlineStore.urgentReminders || []);
 
 const filteredDeadlines = computed(() => {
-  let filtered = [...deadlineRecords.value];
+  let filtered = [...(deadlineRecords.value || [])];
 
   if (searchForm.value.patentNumber) {
     filtered = filtered.filter((deadline) =>
-      deadline.patentNumber
-        .toLowerCase()
+      deadline?.patentNumber
+        ?.toLowerCase()
         .includes(searchForm.value.patentNumber.toLowerCase())
     );
   }
 
   if (searchForm.value.deadlineType) {
     filtered = filtered.filter(
-      (deadline) => deadline.deadlineType === searchForm.value.deadlineType
+      (deadline) => deadline?.deadlineType === searchForm.value.deadlineType
     );
   }
 
   if (searchForm.value.status) {
     filtered = filtered.filter(
-      (deadline) => deadline.status === searchForm.value.status
+      (deadline) => deadline?.status === searchForm.value.status
     );
   }
 
   if (searchForm.value.riskLevel) {
     filtered = filtered.filter(
-      (deadline) => deadline.riskLevel === searchForm.value.riskLevel
+      (deadline) => deadline?.riskLevel === searchForm.value.riskLevel
     );
   }
 
@@ -519,13 +599,35 @@ const handleAddDeadline = async (deadlineData: any) => {
 
 const editDeadline = (deadline: DeadlineRecord) => {
   console.log("编辑期限数据:", deadline);
+
+  // 格式化日期为 YYYY-MM-DD 格式
+  let formattedDate = "";
+  if (deadline.deadlineDate) {
+    if (typeof deadline.deadlineDate === "string") {
+      // 如果是ISO日期字符串，转换为 YYYY-MM-DD
+      formattedDate = deadline.deadlineDate.split("T")[0];
+    } else if (
+      deadline.deadlineDate &&
+      typeof deadline.deadlineDate === "object" &&
+      "toISOString" in deadline.deadlineDate
+    ) {
+      // 如果是Date对象，转换为 YYYY-MM-DD
+      formattedDate = (deadline.deadlineDate as Date)
+        .toISOString()
+        .split("T")[0];
+    } else {
+      formattedDate = String(deadline.deadlineDate);
+    }
+  }
+
   // 自动填充专利信息
   editingDeadline.value = {
     ...deadline,
+    patentId: deadline.patentId,
     patentNumber: deadline.patentNumber,
     patentTitle: deadline.patentTitle,
     deadlineType: deadline.deadlineType,
-    deadlineDate: deadline.deadlineDate,
+    deadlineDate: formattedDate,
     priority: deadline.priority,
     status: deadline.status,
     riskLevel: deadline.riskLevel,
@@ -569,38 +671,54 @@ const completeDeadline = async (id: number) => {
 
 const extendDeadline = async (id: number) => {
   try {
+    // 获取当前期限信息
+    const deadline = deadlineStore.deadlineRecords.find(
+      (d: any) => d.id === id
+    );
+    if (!deadline) {
+      ElMessage.error("未找到指定的期限记录");
+      return;
+    }
+
+    // 弹出延期天数输入框
     const { value: days } = await ElMessageBox.prompt(
-      "请输入延期天数",
+      `延期期限：${deadline.patentNumber} - ${deadline.patentTitle}`,
       "延期期限",
       {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
+        inputPlaceholder: "请输入延期天数",
         inputPattern: /^\d+$/,
         inputErrorMessage: "请输入有效的天数",
+        inputValue: "7",
+        message: `
+          <div style="text-align: left; margin-bottom: 15px;">
+            <p><strong>当前期限信息：</strong></p>
+            <p>专利：${deadline.patentNumber} - ${deadline.patentTitle}</p>
+            <p>类型：${getDeadlineTypeText(deadline.deadlineType)}</p>
+            <p>原到期日：${formatDate(deadline.deadlineDate)}</p>
+            <p>剩余天数：${deadline.daysUntilDeadline}天</p>
+          </div>
+          <p><strong>请输入延期天数（1-365天）：</strong></p>
+        `,
+        dangerouslyUseHTMLString: true,
       }
     );
 
     if (days) {
-      // 直接调用store的updateDeadlineRecord方法
-      const deadline = deadlineStore.deadlineRecords.find((d) => d.id === id);
-      if (deadline) {
-        const newDate = new Date(deadline.deadlineDate);
-        newDate.setDate(newDate.getDate() + parseInt(days));
+      const extensionDays = parseInt(days);
 
-        await deadlineStore.updateDeadlineRecord(id, {
-          deadlineDate: newDate.toISOString().split("T")[0],
-          status: "extended",
-          daysUntilDeadline: Math.ceil(
-            (newDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-          ),
-        });
-
-        ElMessage.success("期限延期成功");
-        // 刷新数据
-        await deadlineStore.loadDeadlineRecords();
-      } else {
-        ElMessage.error("未找到指定的期限记录");
+      if (extensionDays < 1 || extensionDays > 365) {
+        ElMessage.error("延期天数必须在1-365天之间");
+        return;
       }
+
+      // 调用store的延期方法
+      await deadlineStore.extendDeadline(id, extensionDays);
+
+      ElMessage.success(`期限延期成功，延期${extensionDays}天`);
+      // 刷新数据
+      await deadlineStore.loadDeadlineRecords();
     }
   } catch (error) {
     if (error !== "cancel") {
@@ -681,11 +799,6 @@ const executeBatchOperation = async (id: number) => {
 const viewBatchResult = (operation: BatchOperation) => {
   // 实现查看批量操作结果逻辑
   console.log("查看批量操作结果:", operation);
-};
-
-const handleCalendarEventClick = (event: CalendarEvent) => {
-  // 实现日历事件点击处理逻辑
-  console.log("日历事件点击:", event);
 };
 
 // 辅助方法
@@ -848,16 +961,30 @@ const getBatchStatusText = (status: string) => {
 
 // 生命周期
 onMounted(async () => {
-  loading.value = true;
   try {
-    await deadlineStore.loadDeadlineRecords();
-    await deadlineStore.loadSmartReminders();
-    await deadlineStore.loadCalendarEvents();
-    await deadlineStore.loadRiskAssessments();
+    console.log("开始初始化期限管理...");
+    console.log("deadlineStore:", deadlineStore);
+    console.log(
+      "deadlineStore.initializeStore:",
+      deadlineStore.initializeStore
+    );
+
+    if (typeof deadlineStore.initializeStore === "function") {
+      await deadlineStore.initializeStore();
+      console.log("期限管理初始化成功");
+    } else {
+      console.error("initializeStore方法不存在，尝试直接加载数据");
+      // 如果initializeStore不存在，直接调用各个加载方法
+      await Promise.all([
+        deadlineStore.loadDeadlineRecords(),
+        deadlineStore.loadSmartReminders(),
+        deadlineStore.loadRiskAssessments(),
+      ]);
+      console.log("直接加载数据成功");
+    }
   } catch (error) {
+    console.error("初始化期限管理失败:", error);
     ElMessage.error("加载数据失败");
-  } finally {
-    loading.value = false;
   }
 });
 </script>
@@ -1127,6 +1254,17 @@ onMounted(async () => {
   color: #67c23a;
 }
 
+/* 空状态样式 */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #909399;
+}
+
+.empty-state .el-empty {
+  padding: 20px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .page-header {
@@ -1148,5 +1286,38 @@ onMounted(async () => {
   .reminder-actions {
     justify-content: center;
   }
+}
+
+/* 操作按钮样式 */
+.action-buttons-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.action-btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 8px 12px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+}
+
+/* 强制覆盖Element Plus的默认样式 */
+.el-table .el-table__cell .action-buttons-container,
+.el-table .el-table__cell .action-buttons-container * {
+  box-sizing: border-box !important;
+}
+
+/* 确保操作列内容不会溢出 */
+.el-table .el-table__cell .action-buttons-container {
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 </style>
