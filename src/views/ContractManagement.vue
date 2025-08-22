@@ -193,17 +193,89 @@
       </el-tab-pane>
 
       <!-- 合同模板库 -->
-      <el-tab-pane label="合同模板库" name="templates">
+      <el-tab-pane label="合同管理" name="templates">
         <div class="tab-content">
           <div class="tab-header">
-            <h3>合同模板库</h3>
-            <el-button type="primary" @click="showAddTemplateDialog = true">
-              <el-icon><Plus /></el-icon>
-              添加模板
-            </el-button>
+            <h3>合同管理</h3>
+            <div class="header-actions">
+              <el-button type="success" @click="showAddContractDialog = true">
+                <el-icon><Plus /></el-icon>
+                新建合同
+              </el-button>
+              <el-button type="primary" @click="showAddTemplateDialog = true">
+                <el-icon><DocumentAdd /></el-icon>
+                添加模板
+              </el-button>
+            </div>
           </div>
 
+          <!-- 合同列表 -->
+          <div class="section-divider">
+            <h4>合同列表</h4>
+          </div>
+          <el-table
+            :data="contracts"
+            style="width: 100%; margin-bottom: 30px"
+            v-loading="loading"
+          >
+            <el-table-column prop="title" label="合同标题" min-width="200" />
+            <el-table-column
+              prop="contractNumber"
+              label="合同编号"
+              width="150"
+            />
+            <el-table-column label="类型" width="120">
+              <template #default="{ row }">
+                <el-tag :type="getContractTypeType(row.type)">
+                  {{ getContractTypeLabel(row.type) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getContractStatusType(row.status)">
+                  {{ getContractStatusLabel(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="120">
+              <template #default="{ row }">
+                {{ row.currency }} {{ formatCurrency(row.amount || 0) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="startDate" label="开始日期" width="120">
+              <template #default="{ row }">
+                {{ row.startDate ? formatDate(row.startDate) : "-" }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="endDate" label="结束日期" width="120">
+              <template #default="{ row }">
+                {{ row.endDate ? formatDate(row.endDate) : "-" }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="{ row }">
+                <el-button size="small" type="info" @click="viewContract(row)">
+                  查看
+                </el-button>
+                <el-button size="small" @click="editContract(row)">
+                  编辑
+                </el-button>
+                <el-button
+                  size="small"
+                  type="danger"
+                  @click="deleteContract(row.id)"
+                >
+                  删除
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
           <!-- 模板列表 -->
+          <div class="section-divider">
+            <h4>模板库</h4>
+          </div>
           <el-table
             :data="contractTemplates"
             style="width: 100%"
@@ -434,6 +506,19 @@
       />
     </el-dialog>
 
+    <!-- 新建合同对话框 -->
+    <el-dialog
+      v-model="showAddContractDialog"
+      :title="editingContract ? '编辑合同' : '新建合同'"
+      width="800px"
+    >
+      <ContractForm
+        :initial-data="editingContract"
+        @submit="handleContractSubmit"
+        @cancel="showAddContractDialog = false"
+      />
+    </el-dialog>
+
     <!-- 合同模板添加/编辑对话框 -->
     <el-dialog
       v-model="showAddTemplateDialog"
@@ -485,15 +570,18 @@ import {
   Star,
   Plus,
   Search,
+  DocumentAdd,
 } from "@element-plus/icons-vue";
 import { useContractStore } from "@/stores/contract";
 import type {
   LawFirm,
+  Contract,
   ContractTemplate,
   FeeAgreement,
   ServiceEvaluation,
 } from "@/types/contract";
 import LawFirmForm from "@/components/contracts/LawFirmForm.vue";
+import ContractForm from "@/components/contracts/ContractForm.vue";
 import ContractTemplateForm from "@/components/contracts/ContractTemplateForm.vue";
 import FeeAgreementForm from "@/components/contracts/FeeAgreementForm.vue";
 import ServiceEvaluationForm from "@/components/contracts/ServiceEvaluationForm.vue";
@@ -511,6 +599,10 @@ const lawFirmSearch = ref("");
 const lawFirmStatusFilter = ref("");
 const lawFirmServiceLevelFilter = ref("");
 
+// 合同管理相关
+const showAddContractDialog = ref(false);
+const editingContract = ref<Contract | null>(null);
+
 // 合同模板相关
 const showAddTemplateDialog = ref(false);
 const editingTemplate = ref<ContractTemplate | null>(null);
@@ -526,6 +618,7 @@ const editingEvaluation = ref<ServiceEvaluation | null>(null);
 // 计算属性
 const contractStatistics = computed(() => contractStore.contractStatistics);
 const lawFirmStatistics = computed(() => contractStore.lawFirmStatistics);
+const contracts = computed(() => contractStore.contracts);
 const contractTemplates = computed(() => contractStore.contractTemplates);
 const feeAgreements = computed(() => contractStore.feeAgreements);
 const serviceEvaluations = computed(() => contractStore.serviceEvaluations);
@@ -693,6 +786,37 @@ const getEvaluationStatusLabel = (status: string): string => {
   return labelMap[status] || status;
 };
 
+// 合同状态相关方法
+const getContractStatusType = (status: string): string => {
+  const typeMap: Record<string, string> = {
+    draft: "info",
+    pending: "warning",
+    signed: "primary",
+    active: "success",
+    completed: "success",
+    terminated: "danger",
+  };
+  return typeMap[status] || "info";
+};
+
+const getContractStatusLabel = (status: string): string => {
+  const labelMap: Record<string, string> = {
+    draft: "草稿",
+    pending: "待签署",
+    signed: "已签署",
+    active: "执行中",
+    completed: "已完成",
+    terminated: "已终止",
+  };
+  return labelMap[status] || status;
+};
+
+// 查看合同详情
+const viewContract = (contract: Contract) => {
+  ElMessage.info("合同详情查看功能开发中");
+  console.log("查看合同:", contract);
+};
+
 // 律师事务所管理
 const editLawFirm = (lawFirm: LawFirm) => {
   editingLawFirm.value = lawFirm;
@@ -721,6 +845,46 @@ const handleLawFirmSubmit = (lawFirmData: any) => {
   }
   showAddLawFirmDialog.value = false;
   editingLawFirm.value = null;
+};
+
+// 合同模板管理
+// 合同管理
+const editContract = (contract: Contract) => {
+  editingContract.value = contract;
+  showAddContractDialog.value = true;
+};
+
+const deleteContract = async (id: number) => {
+  try {
+    await ElMessageBox.confirm("确定要删除这个合同吗？", "确认删除", {
+      type: "warning",
+    });
+    await contractStore.deleteContract(id);
+    ElMessage.success("合同删除成功");
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error("删除失败");
+    }
+  }
+};
+
+const handleContractSubmit = async (contractData: any) => {
+  try {
+    if (editingContract.value) {
+      await contractStore.updateContract(
+        editingContract.value.id,
+        contractData
+      );
+      ElMessage.success("合同更新成功");
+    } else {
+      await contractStore.addContract(contractData);
+      ElMessage.success("合同创建成功");
+    }
+    showAddContractDialog.value = false;
+    editingContract.value = null;
+  } catch (error) {
+    ElMessage.error(editingContract.value ? "更新失败" : "创建失败");
+  }
 };
 
 // 合同模板管理
@@ -958,6 +1122,24 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 600;
   color: #303133;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.section-divider {
+  margin: 20px 0 15px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.section-divider h4 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .search-filters {

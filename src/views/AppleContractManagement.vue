@@ -176,18 +176,92 @@
             </div>
           </el-tab-pane>
 
-          <!-- 合同模板库 -->
-          <el-tab-pane label="合同模板库" name="templates">
+          <!-- 合同管理 -->
+          <el-tab-pane label="合同管理" name="templates">
             <div class="tab-content">
               <div class="tab-header">
-                <h3 class="section-title">合同模板库</h3>
-                <AppleButton
-                  variant="primary"
-                  @click="showAddTemplateDialog = true"
+                <h3 class="section-title">合同管理</h3>
+                <div class="header-actions">
+                  <AppleButton
+                    variant="success"
+                    @click="showAddContractDialog = true"
+                  >
+                    <el-icon><Plus /></el-icon>
+                    新建合同
+                  </AppleButton>
+                  <AppleButton
+                    variant="primary"
+                    @click="showAddTemplateDialog = true"
+                  >
+                    <el-icon><DocumentAdd /></el-icon>
+                    添加模板
+                  </AppleButton>
+                </div>
+              </div>
+
+              <!-- 合同列表 -->
+              <div class="section-divider">
+                <h4>合同列表</h4>
+              </div>
+              <div class="contracts-grid">
+                <div
+                  class="contract-card"
+                  v-for="contract in contractStore.contracts"
+                  :key="contract.id"
                 >
-                  <el-icon><Plus /></el-icon>
-                  添加模板
-                </AppleButton>
+                  <div class="contract-icon">
+                    <el-icon><DocumentIcon /></el-icon>
+                  </div>
+                  <div class="contract-content">
+                    <h4 class="contract-title">{{ contract.title }}</h4>
+                    <p class="contract-description">
+                      {{ contract.description }}
+                    </p>
+                    <div class="contract-meta">
+                      <span class="contract-number">{{
+                        contract.contractNumber
+                      }}</span>
+                      <span
+                        class="contract-status"
+                        :class="`status-${contract.status}`"
+                      >
+                        {{ getContractStatusLabel(contract.status) }}
+                      </span>
+                      <span class="contract-amount">
+                        {{ contract.currency }}
+                        {{ formatCurrency(contract.amount || 0) }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="contract-actions">
+                    <AppleButton
+                      size="small"
+                      variant="primary"
+                      @click="viewContract(contract)"
+                    >
+                      查看
+                    </AppleButton>
+                    <AppleButton
+                      size="small"
+                      variant="secondary"
+                      @click="editContract(contract)"
+                    >
+                      编辑
+                    </AppleButton>
+                    <AppleButton
+                      size="small"
+                      variant="danger"
+                      @click="deleteContract(contract.id)"
+                    >
+                      删除
+                    </AppleButton>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 模板库 -->
+              <div class="section-divider">
+                <h4>模板库</h4>
               </div>
 
               <!-- 模板列表 -->
@@ -262,7 +336,9 @@
                 >
                   <div class="agreement-header">
                     <div class="agreement-info">
-                      <h4 class="agreement-type">{{ agreement.feeType }}</h4>
+                      <h4 class="agreement-type">
+                        {{ getFeeTypeLabel(agreement.feeType) }}
+                      </h4>
                       <p class="agreement-description">
                         {{ agreement.description }}
                       </p>
@@ -402,6 +478,19 @@
     </el-dialog>
 
     <el-dialog
+      v-model="showAddContractDialog"
+      title="新建合同"
+      width="800px"
+      class="apple-dialog"
+    >
+      <ContractForm
+        :initial-data="editingContract"
+        @submit="handleContractSubmit"
+        @cancel="showAddContractDialog = false"
+      />
+    </el-dialog>
+
+    <el-dialog
       v-model="showAddTemplateDialog"
       title="添加合同模板"
       width="600px"
@@ -501,11 +590,13 @@ import { appleAnimations } from "@/utils/animations";
 import AppleButton from "@/components/ui/AppleButton.vue";
 import AppleCard from "@/components/ui/AppleCard.vue";
 import LawFirmForm from "@/components/contracts/LawFirmForm.vue";
+import ContractForm from "@/components/contracts/ContractForm.vue";
 import ContractTemplateForm from "@/components/contracts/ContractTemplateForm.vue";
 import FeeAgreementForm from "@/components/contracts/FeeAgreementForm.vue";
 import ServiceEvaluationForm from "@/components/contracts/ServiceEvaluationForm.vue";
 import type {
   LawFirm,
+  Contract,
   ContractTemplate,
   FeeAgreement,
   ServiceEvaluation,
@@ -516,6 +607,7 @@ import {
   Document as DocumentIcon,
   OfficeBuilding,
   Star,
+  DocumentAdd,
 } from "@element-plus/icons-vue";
 
 const contractStore = useContractStore();
@@ -535,6 +627,7 @@ const lawFirmSearch = ref("");
 
 // 对话框状态
 const showAddLawFirmDialog = ref(false);
+const showAddContractDialog = ref(false);
 const showAddTemplateDialog = ref(false);
 const showAddAgreementDialog = ref(false);
 const showAddEvaluationDialog = ref(false);
@@ -547,6 +640,7 @@ const showEditEvaluationDialog = ref(false);
 
 // 编辑数据
 const editingLawFirm = ref<LawFirm | null>(null);
+const editingContract = ref<Contract | null>(null);
 const editingTemplate = ref<ContractTemplate | null>(null);
 const editingAgreement = ref<FeeAgreement | null>(null);
 const editingEvaluation = ref<ServiceEvaluation | null>(null);
@@ -738,6 +832,25 @@ const getLawFirmStatusText = (status: string) => {
   return textMap[status] || "未知";
 };
 
+// 获取费用类型标签
+const getFeeTypeLabel = (type: string): string => {
+  const labelMap: Record<string, string> = {
+    hourly: "按小时收费",
+    fixed: "固定费用",
+    contingency: "风险代理",
+    hybrid: "混合模式",
+    application: "申请费",
+    examination: "审查费",
+    maintenance: "维持费",
+    renewal: "续展费",
+    priority: "优先权费",
+    extension: "延期费",
+    correction: "更正费",
+    other: "其他费用",
+  };
+  return labelMap[type] || type;
+};
+
 // 律师事务所操作
 const editLawFirm = (firm: LawFirm) => {
   editingLawFirm.value = { ...firm };
@@ -804,6 +917,67 @@ const handleEditLawFirmSubmit = async (firmData: Partial<LawFirm>) => {
   } catch (error) {
     ElMessage.error("更新失败");
   }
+};
+
+// 合同管理操作
+const viewContract = (contract: Contract) => {
+  ElMessage.info("合同详情查看功能开发中");
+  console.log("查看合同:", contract);
+};
+
+const editContract = (contract: Contract) => {
+  editingContract.value = { ...contract };
+  showAddContractDialog.value = true;
+};
+
+const deleteContract = async (id: number) => {
+  try {
+    await ElMessageBox.confirm("确定要删除这个合同吗？", "确认删除", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+    await contractStore.deleteContract(id);
+    ElMessage.success("合同删除成功");
+    await contractStore.fetchContracts();
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error("删除失败");
+    }
+  }
+};
+
+const handleContractSubmit = async (contractData: Partial<Contract>) => {
+  try {
+    if (editingContract.value) {
+      await contractStore.updateContract(
+        editingContract.value.id,
+        contractData
+      );
+      ElMessage.success("合同更新成功");
+    } else {
+      await contractStore.addContract(contractData as Contract);
+      ElMessage.success("合同创建成功");
+    }
+    showAddContractDialog.value = false;
+    editingContract.value = null;
+    await contractStore.fetchContracts();
+  } catch (error) {
+    ElMessage.error(editingContract.value ? "更新失败" : "创建失败");
+  }
+};
+
+// 合同状态相关方法
+const getContractStatusLabel = (status: string): string => {
+  const labelMap: Record<string, string> = {
+    draft: "草稿",
+    pending: "待签署",
+    signed: "已签署",
+    active: "执行中",
+    completed: "已完成",
+    terminated: "已终止",
+  };
+  return labelMap[status] || status;
 };
 
 // 合同模板操作
@@ -1488,10 +1662,115 @@ onMounted(async () => {
 }
 
 /* 模板网格 */
+.contracts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
 .templates-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
+}
+
+/* 合同卡片样式 */
+.contract-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--apple-shadow-small);
+  cursor: pointer;
+}
+
+.contract-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--apple-shadow-medium);
+}
+
+.contract-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--apple-accent), #5856d6);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.contract-title {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--apple-text-primary);
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.contract-description {
+  color: var(--apple-text-secondary);
+  font-size: 0.9em;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.contract-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.contract-number {
+  font-size: 0.85em;
+  color: var(--apple-text-secondary);
+  font-family: "SF Mono", monospace;
+}
+
+.contract-status {
+  font-size: 0.8em;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 8px;
+  text-align: center;
+  max-width: fit-content;
+}
+
+.contract-amount {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--apple-success);
+}
+
+.contract-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 分区标题样式 */
+.section-divider {
+  margin: 24px 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.section-divider h4 {
+  margin: 0;
+  color: var(--apple-text-primary);
+  font-size: 1.1em;
+  font-weight: 600;
 }
 
 /* 律师事务所网格 */
@@ -1823,6 +2102,7 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
+  .contracts-grid,
   .templates-grid {
     grid-template-columns: 1fr;
   }

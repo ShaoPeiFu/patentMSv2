@@ -1,5 +1,8 @@
 <template>
   <div class="home">
+    <!-- Three.js 3D背景 -->
+    <div id="three-container" class="three-container"></div>
+
     <!-- 粒子背景动画 -->
     <div class="particles-container">
       <div
@@ -396,7 +399,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import {
   User,
   Plus,
@@ -417,6 +420,7 @@ import {
   Check,
   Clock,
 } from "@element-plus/icons-vue";
+import * as THREE from "three";
 
 // 响应式数据
 const demoVisible = ref(false);
@@ -532,9 +536,277 @@ const loadStats = async () => {
   }
 };
 
+// Three.js 3D场景
+let scene: THREE.Scene;
+let camera: THREE.PerspectiveCamera;
+let renderer: THREE.WebGLRenderer;
+let animationId: number;
+let sceneObjects: THREE.Object3D[] = [];
+
+// 初始化Three.js场景
+const initThreeJS = () => {
+  const container = document.getElementById("three-container");
+  if (!container) return;
+
+  // 创建场景
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+  scene.fog = new THREE.Fog(0x000000, 50, 200);
+
+  // 创建相机
+  camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+  camera.position.z = 80;
+
+  // 创建渲染器
+  renderer = new THREE.WebGLRenderer({
+    alpha: false,
+    antialias: true,
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000, 1);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  // 创建几何体
+  createGeometryObjects();
+
+  // 添加光源
+  const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  directionalLight.position.set(1, 1, 1);
+  scene.add(directionalLight);
+
+  // 添加点光源
+  const pointLight1 = new THREE.PointLight(0xffffff, 1.5, 100);
+  pointLight1.position.set(20, 20, 20);
+  scene.add(pointLight1);
+
+  const pointLight2 = new THREE.PointLight(0x667eea, 1.0, 80);
+  pointLight2.position.set(-20, -20, 20);
+  scene.add(pointLight2);
+
+  const pointLight3 = new THREE.PointLight(0xf093fb, 1.0, 60);
+  pointLight3.position.set(0, 30, -20);
+  scene.add(pointLight3);
+
+  // 添加鼠标交互
+  addMouseInteraction();
+
+  // 开始动画循环
+  animate();
+
+  // 监听窗口大小变化
+  window.addEventListener("resize", onWindowResize);
+};
+
+// 创建发光光效对象
+const createGeometryObjects = () => {
+  // 创建中央发光漩涡
+  const vortexGeometry = new THREE.RingGeometry(5, 15, 64);
+  const vortexMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide,
+  });
+
+  const vortex = new THREE.Mesh(vortexGeometry, vortexMaterial);
+  vortex.position.z = -10;
+  scene.add(vortex);
+  sceneObjects.push(vortex);
+
+  // 创建多个发光环
+  for (let i = 0; i < 8; i++) {
+    const ringGeometry = new THREE.RingGeometry(2 + i * 3, 4 + i * 3, 32);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.3 - i * 0.03,
+      side: THREE.DoubleSide,
+    });
+
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.position.z = -5 - i * 2;
+    ring.rotation.x = Math.PI / 2;
+    scene.add(ring);
+    sceneObjects.push(ring);
+  }
+
+  // 创建发光线条
+  for (let i = 0; i < 50; i++) {
+    const lineGeometry = new THREE.BufferGeometry();
+    const points = [];
+
+    // 创建弯曲的光轨
+    for (let j = 0; j < 10; j++) {
+      const t = j / 9;
+      const x = (Math.random() - 0.5) * 100;
+      const y = (Math.random() - 0.5) * 100 + Math.sin(t * Math.PI * 2) * 20;
+      const z = (Math.random() - 0.5) * 50;
+      points.push(new THREE.Vector3(x, y, z));
+    }
+
+    lineGeometry.setFromPoints(points);
+
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.6,
+      linewidth: 2,
+    });
+
+    const line = new THREE.Line(lineGeometry, lineMaterial);
+    scene.add(line);
+    sceneObjects.push(line);
+  }
+
+  // 创建发光粒子
+  for (let i = 0; i < 100; i++) {
+    const particleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const particleMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.8,
+    });
+
+    const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+    particle.position.set(
+      (Math.random() - 0.5) * 120,
+      (Math.random() - 0.5) * 120,
+      (Math.random() - 0.5) * 60
+    );
+
+    scene.add(particle);
+    sceneObjects.push(particle);
+  }
+};
+
+// 添加鼠标交互
+const addMouseInteraction = () => {
+  const container = renderer.domElement;
+
+  // 鼠标移动事件
+  container.addEventListener("mousemove", (event) => {
+    const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // 相机跟随鼠标轻微移动
+    camera.position.x += (mouseX * 2 - camera.position.x) * 0.01;
+    camera.position.y += (mouseY * 2 - camera.position.y) * 0.01;
+  });
+
+  // 鼠标点击事件
+  container.addEventListener("click", (event) => {
+    const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // 创建射线检测器
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), camera);
+
+    // 检测点击的几何体
+    const intersects = raycaster.intersectObjects(sceneObjects);
+
+    if (intersects.length > 0) {
+      const clickedMesh = intersects[0].object as THREE.Mesh;
+
+      // 点击效果：放大并改变颜色
+      clickedMesh.scale.multiplyScalar(1.5);
+      (clickedMesh.material as THREE.MeshPhongMaterial).color.setHex(0xffffff);
+
+      // 3秒后恢复
+      setTimeout(() => {
+        clickedMesh.scale.multiplyScalar(1 / 1.5);
+        (clickedMesh.material as THREE.MeshPhongMaterial).color.setHex(
+          Math.random() * 0xffffff
+        );
+      }, 3000);
+    }
+  });
+};
+
+// 动画循环
+const animate = () => {
+  animationId = requestAnimationFrame(animate);
+
+  // 动画所有场景对象
+  sceneObjects.forEach((obj, index) => {
+    if (obj instanceof THREE.Mesh) {
+      // 旋转几何体
+      obj.rotation.x += 0.01 * ((index % 3) + 1);
+      obj.rotation.y += 0.01 * ((index % 2) + 1);
+
+      // 浮动效果
+      obj.position.y += Math.sin(Date.now() * 0.001 + index) * 0.02;
+
+      // 呼吸效果
+      const scale = 0.5 + Math.sin(Date.now() * 0.002 + index) * 0.1;
+      obj.scale.set(scale, scale, scale);
+    } else if (obj instanceof THREE.Line) {
+      // 线条的动画效果
+      obj.position.y += Math.sin(Date.now() * 0.001 + index) * 0.01;
+      obj.rotation.z += 0.005;
+    }
+  });
+
+  // 相机轻微移动
+  camera.position.x = Math.sin(Date.now() * 0.0005) * 5;
+  camera.position.y = Math.cos(Date.now() * 0.0003) * 3;
+
+  // 点光源动画
+  const pointLights = scene.children.filter(
+    (child) => child instanceof THREE.PointLight
+  );
+  pointLights.forEach((light, index) => {
+    if (light instanceof THREE.PointLight) {
+      light.position.x = Math.sin(Date.now() * 0.001 + index) * 30;
+      light.position.y = Math.cos(Date.now() * 0.001 + index) * 30;
+      light.intensity = 0.8 + Math.sin(Date.now() * 0.002 + index) * 0.4;
+    }
+  });
+
+  renderer.render(scene, camera);
+};
+
+// 窗口大小变化处理
+const onWindowResize = () => {
+  if (camera && renderer) {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+};
+
+// 清理Three.js资源
+const cleanupThreeJS = () => {
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+  }
+
+  if (renderer && renderer.domElement) {
+    renderer.domElement.remove();
+  }
+
+  window.removeEventListener("resize", onWindowResize);
+};
+
 // 组件挂载时加载统计数据
 onMounted(() => {
   loadStats();
+  initThreeJS();
+});
+
+// 组件卸载时清理资源
+onUnmounted(() => {
+  cleanupThreeJS();
 });
 
 // 粒子样式
@@ -563,6 +835,22 @@ const getParticleStyle = (_index: number) => {
   overflow-x: hidden;
 }
 
+/* Three.js 3D背景容器 */
+.three-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+  pointer-events: auto;
+}
+
+.three-container canvas {
+  display: block;
+  outline: none;
+}
+
 /* 粒子背景动画 */
 .particles-container {
   position: fixed;
@@ -572,6 +860,7 @@ const getParticleStyle = (_index: number) => {
   height: 100%;
   z-index: -1;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  opacity: 0.1;
 }
 
 .particle {
@@ -772,7 +1061,6 @@ const getParticleStyle = (_index: number) => {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-fill-color: transparent;
   animation: slideInLeft 1s ease-out;
   position: relative;
 }
@@ -786,7 +1074,7 @@ const getParticleStyle = (_index: number) => {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-fill-color: transparent;
+
   opacity: 0;
   animation: glow 2s ease-in-out infinite alternate;
 }
@@ -1080,7 +1368,7 @@ const getParticleStyle = (_index: number) => {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-fill-color: transparent;
+
   position: relative;
   z-index: 1;
 }
@@ -1270,7 +1558,6 @@ const getParticleStyle = (_index: number) => {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-fill-color: transparent;
 }
 
 .stat-label {

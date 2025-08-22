@@ -252,6 +252,12 @@ export const patentAPI = {
     const response = await api.post(`/patents/${patentId}/deadlines`, data);
     return response.data;
   },
+
+  // 获取专利分类
+  getPatentCategories: async () => {
+    const response = await api.get("/patent-categories");
+    return response.data;
+  },
 };
 
 // 任务相关API

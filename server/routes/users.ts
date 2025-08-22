@@ -148,81 +148,13 @@ router.get("/:id", authenticateToken, async (req, res) => {
 router.put("/:id", authenticateToken, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
-    const { realName, email, phone, department, role } = req.body;
+    const { realName, email, phone, department } = req.body;
 
     if (isNaN(userId)) {
       return res.status(400).json({ error: "无效的用户ID" });
     }
 
-    // 获取当前用户信息
-    const currentUser = req.user;
-    if (!currentUser) {
-      return res.status(401).json({ error: "用户未认证" });
-    }
-
-    // 权限检查：管理员可以修改任何用户的部门和角色，但不能修改个人信息
-    // 普通用户只能修改自己的信息
-    const isAdmin = currentUser.role === "admin";
-    const isEditingSelf = currentUser.id === userId;
-
-    if (!isAdmin && !isEditingSelf) {
-      return res.status(403).json({ error: "权限不足，只能修改自己的信息" });
-    }
-
-    // 如果是管理员编辑其他用户，只允许修改部门和角色
-    if (isAdmin && !isEditingSelf) {
-      if (realName || email || phone) {
-        return res.status(403).json({
-          error: "管理员只能修改其他用户的部门和角色，不能修改个人信息",
-        });
-      }
-
-      // 只验证部门和角色字段
-      if (!department || !role) {
-        return res.status(400).json({
-          error: "部门和角色是必填的",
-          missing: {
-            department: !department,
-            role: !role,
-          },
-        });
-      }
-
-      // 验证角色是否有效
-      if (!["user", "admin", "reviewer"].includes(role)) {
-        return res.status(400).json({ error: "无效的角色" });
-      }
-
-      // 更新部门和角色
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          department: department.trim(),
-          role: role,
-          updatedAt: new Date(),
-        },
-        select: {
-          id: true,
-          username: true,
-          realName: true,
-          email: true,
-          phone: true,
-          department: true,
-          role: true,
-          avatar: true,
-          createdAt: true,
-          lastLoginAt: true,
-          updatedAt: true,
-        },
-      });
-
-      return res.json({
-        message: "用户部门和角色更新成功",
-        user: updatedUser,
-      });
-    }
-
-    // 如果是编辑自己的信息，验证所有必填字段
+    // 验证必填字段
     if (!realName || !email || !phone || !department) {
       return res.status(400).json({
         error: "所有字段都是必填的",

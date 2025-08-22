@@ -107,7 +107,6 @@ export const deadlineAPI = {
   async deleteRiskAssessment(id: number): Promise<void> {
     await api.delete(`/deadlines/risk-assessments/${id}`);
   },
-
   // 批量操作管理
   async getBatchOperations(params?: { status?: string }): Promise<BatchOperation[]> {
     const response = await api.get("/deadlines/batch-operations", { params });

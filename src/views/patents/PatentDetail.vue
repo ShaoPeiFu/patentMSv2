@@ -30,6 +30,9 @@
           <el-descriptions-item label="专利号">
             {{ patent.patentNumber }}
           </el-descriptions-item>
+          <el-descriptions-item label="申请号">
+            {{ patent.applicationNumber || "未设置" }}
+          </el-descriptions-item>
 
           <el-descriptions-item label="申请日期">
             {{ formatDate(patent.applicationDate) }}
@@ -58,10 +61,40 @@
             {{ patent.technicalField }}
           </el-descriptions-item>
           <el-descriptions-item label="申请人">
-            {{ formatArrayField(patent.applicants) }}
+            <div class="person-tags">
+              <el-tag
+                v-for="(applicant, index) in getPersonArray(patent.applicants)"
+                :key="`applicant-${index}`"
+                type="primary"
+                class="person-tag"
+              >
+                {{ applicant }}
+              </el-tag>
+              <span
+                v-if="!getPersonArray(patent.applicants).length"
+                class="no-data"
+              >
+                暂无
+              </span>
+            </div>
           </el-descriptions-item>
           <el-descriptions-item label="发明人">
-            {{ formatArrayField(patent.inventors) }}
+            <div class="person-tags">
+              <el-tag
+                v-for="(inventor, index) in getPersonArray(patent.inventors)"
+                :key="`inventor-${index}`"
+                type="success"
+                class="person-tag"
+              >
+                {{ inventor }}
+              </el-tag>
+              <span
+                v-if="!getPersonArray(patent.inventors).length"
+                class="no-data"
+              >
+                暂无
+              </span>
+            </div>
           </el-descriptions-item>
         </el-descriptions>
       </el-card>
@@ -112,27 +145,16 @@
         </div>
       </el-card>
 
-      <!-- 文档版本管理 -->
+      <!-- 文档管理 -->
       <el-card class="documents-card">
         <template #header>
           <div class="card-header">
-            <h3>文档版本管理</h3>
-            <el-switch
-              v-model="useAdvancedDocumentManagement"
-              active-text="高级版本管理"
-              inactive-text="简单文档管理"
-              @change="handleDocumentModeChange"
-            />
+            <h3>文档管理</h3>
           </div>
         </template>
 
-        <!-- 高级版本管理 -->
-        <div v-if="useAdvancedDocumentManagement">
-          <DocumentVersionManager :document-id="patentId" />
-        </div>
-
-        <!-- 简单文档管理（保留原有功能） -->
-        <div v-else>
+        <!-- 文档管理功能 -->
+        <div>
           <div class="table-header">
             <div class="table-actions">
               <el-button
@@ -151,10 +173,6 @@
               >
                 <el-icon><Download /></el-icon>
                 批量下载
-              </el-button>
-              <el-button type="success" size="small" @click="testDownload">
-                <el-icon><Download /></el-icon>
-                测试下载
               </el-button>
             </div>
           </div>
@@ -321,13 +339,6 @@
           </el-table-column>
         </el-table>
       </el-card>
-
-      <!-- 时间线 -->
-      <el-card class="timeline-card">
-        <template #header>
-          <h3>专利时间线</h3>
-        </template>
-      </el-card>
     </div>
 
     <div v-else class="loading-container">
@@ -350,7 +361,7 @@ import {
 } from "@/utils/download";
 import FileUpload from "@/components/FileUpload.vue";
 import FilePreview from "@/components/FilePreview.vue";
-import DocumentVersionManager from "@/components/DocumentVersionManager.vue";
+
 import { formatDate } from "@/utils/dateUtils";
 
 const route = useRoute();
@@ -360,7 +371,6 @@ const patentStore = usePatentStore();
 
 const patent = ref<Patent | null>(null);
 const patentId = ref<string>("");
-const useAdvancedDocumentManagement = ref(true);
 
 // 文件上传相关
 const showUploadDialog = ref(false);
@@ -383,11 +393,25 @@ const fetchPatentDetail = async () => {
     return;
   }
 
-  const foundPatent = patentStore.getPatentById(patentId);
-  if (foundPatent) {
-    patent.value = foundPatent;
-  } else {
-    ElMessage.error("专利不存在");
+  try {
+    // 首先尝试从本地store获取
+    let foundPatent = patentStore.getPatentById(patentId);
+
+    // 如果本地没有，则从API获取
+    if (!foundPatent) {
+      console.log("本地store中没有找到专利，从API获取...");
+      foundPatent = await patentStore.fetchPatentById(patentId);
+    }
+
+    if (foundPatent) {
+      patent.value = foundPatent;
+      console.log("专利数据加载成功:", foundPatent);
+    } else {
+      ElMessage.error("专利不存在");
+    }
+  } catch (error) {
+    console.error("获取专利详情失败:", error);
+    ElMessage.error("获取专利详情失败，请稍后重试");
   }
 };
 
@@ -395,15 +419,6 @@ const fetchPatentDetail = async () => {
 const editPatent = () => {
   if (patent.value) {
     router.push(`/dashboard/patents/${patent.value.id}/edit`);
-  }
-};
-
-// 文档管理模式切换
-const handleDocumentModeChange = (useAdvanced: boolean) => {
-  if (useAdvanced) {
-    ElMessage.success("已切换到高级版本管理模式");
-  } else {
-    ElMessage.success("已切换到简单文档管理模式");
   }
 };
 
@@ -589,37 +604,6 @@ const handleUploadSubmit = async () => {
   }
 };
 
-// 测试下载功能
-const testDownload = () => {
-  if (!patent.value?.documents?.length) {
-    ElMessage.warning("没有可下载的文档");
-    return;
-  }
-
-  const testDoc = patent.value.documents[0];
-  console.log("测试下载文档:", testDoc);
-  console.log("文档URL:", testDoc.fileUrl);
-
-  // 直接测试下载
-  if (testDoc.fileUrl && testDoc.fileUrl.startsWith("blob:")) {
-    const link = window.document.createElement("a");
-    link.href = testDoc.fileUrl;
-    link.download = testDoc.name;
-    link.style.display = "none";
-
-    window.document.body.appendChild(link);
-    link.click();
-
-    setTimeout(() => {
-      window.document.body.removeChild(link);
-    }, 100);
-
-    ElMessage.success("测试下载完成");
-  } else {
-    ElMessage.error("文档URL无效，无法下载");
-  }
-};
-
 // 工具函数
 const getStatusType = (status: string) => {
   const types: Record<string, string> = {
@@ -699,23 +683,37 @@ const formatFileSize = (bytes: number) => {
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-};
-
+}; 
 // 格式化数组字段（处理JSON字符串或数组）
-const formatArrayField = (field: any): string => {
-  if (!field) return "未指定";
+// 获取人员数组（处理JSON字符串或数组）
+const getPersonArray = (field: any): string[] => {
+  if (!field) return [];
 
   try {
     if (typeof field === "string") {
-      const parsed = JSON.parse(field);
-      return Array.isArray(parsed) ? parsed.join(", ") : String(parsed);
+      // 尝试解析JSON
+      try {
+        const parsed = JSON.parse(field);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item) => item && item.trim());
+        }
+        return [];
+      } catch {
+        // 如果不是JSON，可能是逗号分隔的字符串
+        return field
+          .split(/[,，]/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
     } else if (Array.isArray(field)) {
-      return field.join(", ");
-    } else {
-      return String(field);
+      return field.filter((item) => item && item.toString().trim());
+    } else if (field) {
+      return [String(field)];
     }
+    return [];
   } catch (error) {
-    return String(field);
+    console.error("解析人员字段失败:", error);
+    return [];
   }
 };
 
@@ -866,6 +864,26 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
+.person-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.person-tag {
+  margin: 0;
+  font-size: 14px;
+  padding: 0 10px;
+  height: 28px;
+  line-height: 26px;
+}
+
+.no-data {
+  color: #909399;
+  font-size: 14px;
+}
+
 .table-header {
   display: flex;
   justify-content: flex-end;
@@ -878,8 +896,7 @@ onBeforeUnmount(() => {
 }
 
 .documents-card,
-.fees-card,
-.timeline-card {
+.fees-card {
   margin-bottom: 20px;
 }
 

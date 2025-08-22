@@ -405,6 +405,25 @@ export const usePatentStore = defineStore("patent", () => {
     return patents.value.find((p) => p.id === id) || null;
   };
 
+  const fetchPatentById = async (id: number) => {
+    try {
+      console.log(`从API获取专利详情: ${id}`);
+      const response = await patentAPI.getPatent(id);
+
+      // 如果本地没有这个专利，添加到本地数组
+      if (response && !patents.value?.find((p) => p.id === response.id)) {
+        if (patents.value) {
+          patents.value.push(response);
+        }
+      }
+
+      return response;
+    } catch (error) {
+      console.error(`获取专利详情失败 (ID: ${id}):`, error);
+      throw error;
+    }
+  };
+
   const getPatentsByStatus = (status: PatentStatus) => {
     if (!patents.value) return [];
     return patents.value.filter((p) => p.status === status);
@@ -1462,6 +1481,7 @@ export const usePatentStore = defineStore("patent", () => {
 
     clearFilters,
     getPatentById,
+    fetchPatentById,
     getPatentsByStatus,
     getPatentsByType,
 

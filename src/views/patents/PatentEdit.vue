@@ -152,14 +152,25 @@
         <template #header>
           <div class="card-header">
             <h3>文档管理</h3>
-            <el-button
-              size="small"
-              type="primary"
-              @click="showUploadDialog = true"
-            >
-              <el-icon><Upload /></el-icon>
-              上传文档
-            </el-button>
+            <div class="header-actions">
+              <el-button
+                v-if="documents.length > 0"
+                size="small"
+                type="success"
+                @click="downloadAllDocuments"
+              >
+                <el-icon><Download /></el-icon>
+                批量下载
+              </el-button>
+              <el-button
+                size="small"
+                type="primary"
+                @click="showUploadDialog = true"
+              >
+                <el-icon><Upload /></el-icon>
+                上传文档
+              </el-button>
+            </div>
           </div>
         </template>
 
@@ -266,12 +277,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="选择文件" prop="file">
-          <AdvancedFileUpload
+          <FileUpload
             v-model="uploadedFiles"
             :multiple="false"
-            :accept="'.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png'"
-            :max-file-size="50"
-            :auto-upload="false"
+            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+            :max-size="50"
+            hint="请选择要上传的文档文件"
             @file-uploaded="handleFileUploaded"
           />
         </el-form-item>
@@ -369,7 +380,11 @@ import type { PatentDocument, PatentFee } from "@/types/patent";
 import type { FormInstance, FormRules } from "element-plus";
 import { hasPermission } from "@/utils/permissions";
 import { formatDate } from "@/utils/dateUtils";
-import AdvancedFileUpload from "@/components/AdvancedFileUpload.vue";
+import FileUpload from "@/components/FileUpload.vue";
+import {
+  downloadPatentDocument,
+  downloadMultipleDocuments,
+} from "@/utils/download";
 
 const route = useRoute();
 const router = useRouter();
@@ -464,28 +479,50 @@ const fetchPatentDetail = async () => {
     return;
   }
 
-  const foundPatent = patentStore.getPatentById(patentId);
-  if (foundPatent) {
-    // 填充表单数据
-    Object.assign(form, {
-      title: foundPatent.title,
-      patentNumber: foundPatent.patentNumber,
+  try {
+    // 首先尝试从本地store获取
+    let foundPatent = patentStore.getPatentById(patentId);
 
-      applicationDate: foundPatent.applicationDate,
-      type: foundPatent.type,
-      status: foundPatent.status,
-      description: foundPatent.description,
-      technicalField: foundPatent.technicalField,
-      applicants: foundPatent.applicants,
-      inventors: foundPatent.inventors,
-      keywords: foundPatent.keywords,
-    });
+    // 如果本地没有，则从API获取
+    if (!foundPatent) {
+      console.log("本地store中没有找到专利，从API获取...");
+      foundPatent = await patentStore.fetchPatentById(patentId);
+    }
 
-    // 加载文档和费用
-    documents.value = foundPatent.documents || [];
-    fees.value = foundPatent.fees || [];
-  } else {
-    ElMessage.error("专利不存在");
+    if (foundPatent) {
+      console.log("专利数据加载成功:", foundPatent);
+
+      // 填充表单数据
+      Object.assign(form, {
+        title: foundPatent.title,
+        patentNumber: foundPatent.patentNumber,
+        applicationNumber: foundPatent.applicationNumber || "", // 修复申请号字段
+        applicationDate: foundPatent.applicationDate,
+        type: foundPatent.type,
+        status: foundPatent.status,
+        description: foundPatent.description,
+        technicalField: foundPatent.technicalField,
+        applicants: foundPatent.applicants,
+        inventors: foundPatent.inventors,
+        keywords: foundPatent.keywords,
+      });
+
+      // 加载文档和费用
+      documents.value = foundPatent.documents || [];
+      fees.value = foundPatent.fees || [];
+
+      console.log(
+        "表单数据已填充，文档数量:",
+        documents.value.length,
+        "费用数量:",
+        fees.value.length
+      );
+    } else {
+      ElMessage.error("专利不存在");
+    }
+  } catch (error) {
+    console.error("获取专利详情失败:", error);
+    ElMessage.error("获取专利详情失败，请稍后重试");
   }
 };
 
@@ -516,11 +553,11 @@ const savePatent = async () => {
       title: form.title,
       description: form.description,
       patentNumber: form.patentNumber,
-
+      applicationNumber: form.applicationNumber, // 修复申请号字段保存
       applicationDate: form.applicationDate,
       type: form.type as any,
       status: form.status as any,
-      categoryId: 1,
+      categoryId: undefined, // 不设置分类，避免外键约束问题
       applicants: form.applicants,
       inventors: form.inventors,
       technicalField: form.technicalField,
@@ -584,9 +621,13 @@ const saveDraft = () => {
 
 // 处理文件上传完成
 const handleFileUploaded = (file: any) => {
-  // 文件已通过AdvancedFileUpload组件上传完成
-  // 这里可以处理上传成功后的逻辑
+  // 文件已通过FileUpload组件上传完成
   console.log("文件上传完成:", file);
+  console.log("文件URL:", file.url);
+  console.log("文件大小:", file.size);
+
+  // 文件已经通过FileUpload组件处理，这里不需要额外操作
+  // uploadedFiles数组会自动更新
 };
 
 // 上传文档
@@ -597,18 +638,45 @@ const uploadDocument = () => {
   }
 
   const uploadedFile = uploadedFiles.value[0];
+
+  // 检查文件数据
+  if (!uploadedFile || !uploadedFile.url) {
+    ElMessage.error("文件数据无效，请重新选择文件");
+    return;
+  }
+
   const newDocument: PatentDocument = {
     id: Date.now(),
     patentId: isEdit.value ? parseInt(route.params.id as string) : 0,
     name: uploadForm.name,
     type: uploadForm.type as any,
-    fileUrl: uploadedFile.url || URL.createObjectURL(uploadedFile.raw),
-    fileSize: uploadedFile.size,
+    fileUrl: uploadedFile.url,
+    fileSize: uploadedFile.size || 0,
     uploadedAt: new Date().toISOString(),
-    uploadedBy: 1,
+    uploadedBy: userStore.currentUser?.id || 1,
   };
 
+  // 添加到本地文档列表
   documents.value.push(newDocument);
+
+  // 如果是在编辑模式下，通过API保存文档
+  if (isEdit.value && patentStore.createPatentDocument) {
+    const patentId = parseInt(route.params.id as string);
+    patentStore
+      .createPatentDocument(patentId, {
+        name: newDocument.name,
+        type: newDocument.type,
+        fileUrl: newDocument.fileUrl,
+        fileSize: newDocument.fileSize,
+      })
+      .then(() => {
+        console.log("文档已保存到后端");
+      })
+      .catch((error) => {
+        console.error("保存文档到后端失败:", error);
+        ElMessage.warning("文档已添加到本地，但保存到后端失败");
+      });
+  }
 
   // 重置表单
   uploadForm.name = "";
@@ -620,8 +688,73 @@ const uploadDocument = () => {
 };
 
 // 下载文档
-const downloadDocument = (document: PatentDocument) => {
-  ElMessage.success(`开始下载: ${document.name}`);
+const downloadDocument = async (document: PatentDocument) => {
+  try {
+    ElMessage.info(`正在准备下载: ${document.name}`);
+
+    // 使用下载工具函数
+    await downloadPatentDocument(
+      document,
+      {
+        title: form.title,
+        patentNumber: form.patentNumber,
+        applicationDate: form.applicationDate,
+        type: form.type,
+        status: form.status,
+        description: form.description,
+        technicalField: form.technicalField,
+        applicants: form.applicants,
+        inventors: form.inventors,
+        keywords: form.keywords,
+      },
+      {
+        filename: `${document.name}_${form.patentNumber || "patent"}`,
+        showProgress: true,
+      }
+    );
+
+    ElMessage.success(`下载完成: ${document.name}`);
+  } catch (error) {
+    console.error("下载失败:", error);
+    ElMessage.error(`下载失败: ${document.name}`);
+  }
+};
+
+// 批量下载文档
+const downloadAllDocuments = async () => {
+  if (!documents.value.length) {
+    ElMessage.warning("没有可下载的文档");
+    return;
+  }
+
+  try {
+    ElMessage.info(`正在准备批量下载 ${documents.value.length} 个文档...`);
+
+    // 使用批量下载工具函数
+    await downloadMultipleDocuments(
+      documents.value,
+      {
+        title: form.title,
+        patentNumber: form.patentNumber,
+        applicationDate: form.applicationDate,
+        type: form.type,
+        status: form.status,
+        description: form.description,
+        technicalField: form.technicalField,
+        applicants: form.applicants,
+        inventors: form.inventors,
+        keywords: form.keywords,
+      },
+      {
+        showProgress: true,
+      }
+    );
+
+    ElMessage.success(`批量下载完成，共 ${documents.value.length} 个文档`);
+  } catch (error) {
+    console.error("批量下载失败:", error);
+    ElMessage.error("批量下载失败");
+  }
 };
 
 // 删除文档

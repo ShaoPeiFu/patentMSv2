@@ -63,13 +63,12 @@
                 style="width: 100%"
                 clearable
               >
-                <el-option label="计算机软件" :value="4" />
-                <el-option label="生物技术" :value="5" />
-                <el-option label="化学" :value="6" />
-                <el-option label="机械" :value="7" />
-                <el-option label="电子" :value="8" />
-                <el-option label="通信" :value="9" />
-                <el-option label="其他" :value="10" />
+                <el-option
+                  v-for="category in patentCategories"
+                  :key="category.id"
+                  :label="category.name"
+                  :value="category.id"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -140,14 +139,17 @@ import { ref, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
-import { patentApplicationAPI } from "@/utils/api";
+import { patentApplicationAPI, patentAPI } from "@/utils/api";
 import type { PatentType } from "@/types/patent";
 
 const router = useRouter();
 const formRef = ref<FormInstance>();
 const loading = ref(false);
 
-// 获取分类数据
+// 专利分类数据
+const patentCategories = ref<
+  { id: number; name: string; description?: string }[]
+>([]);
 
 const form = reactive({
   title: "",
@@ -212,12 +214,31 @@ const handleSubmit = async () => {
   }
 };
 
+// 获取专利分类数据
+const fetchPatentCategories = async () => {
+  try {
+    const response = await patentAPI.getPatentCategories();
+    console.log("专利分类响应:", response);
+
+    // 处理不同的响应格式
+    if (response && response.categories && Array.isArray(response.categories)) {
+      patentCategories.value = response.categories;
+    } else if (Array.isArray(response)) {
+      patentCategories.value = response;
+    } else {
+      console.warn("专利分类响应格式不正确:", response);
+      patentCategories.value = [];
+    }
+  } catch (error) {
+    console.error("获取专利分类失败:", error);
+    ElMessage.warning("获取专利分类失败，将使用默认分类");
+    patentCategories.value = [];
+  }
+};
+
 // 页面加载时获取分类数据
 onMounted(async () => {
-  try {
-  } catch (error) {
-    console.error("获取分类数据失败:", error);
-  }
+  await fetchPatentCategories();
 });
 </script>
 

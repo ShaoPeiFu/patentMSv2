@@ -7,7 +7,7 @@
           <div class="header-actions">
             <el-button @click="showUploadDialog = true">
               <el-icon><Upload /></el-icon>
-              上传新版本
+              上传文档
             </el-button>
             <el-button @click="refreshVersions">
               <el-icon><Refresh /></el-icon>
@@ -214,7 +214,7 @@
     </el-card>
 
     <!-- 上传新版本对话框 -->
-    <el-dialog v-model="showUploadDialog" title="上传新版本" width="500px">
+    <el-dialog v-model="showUploadDialog" title="上传文档" width="500px">
       <el-form :model="uploadForm" label-width="80px">
         <el-form-item label="文件">
           <el-upload

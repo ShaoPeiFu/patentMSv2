@@ -38,6 +38,7 @@ export interface Patent {
   title: string;
   description?: string;
   patentNumber: string;
+  applicationNumber?: string; // 添加申请号字段
   applicationDate: string;
   publicationDate?: string;
   grantDate?: string;

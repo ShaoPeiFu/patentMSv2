@@ -17,6 +17,9 @@ export interface Permission {
   canDeletePatents: boolean;
   canAddPatents: boolean;
   canReviewPatents: boolean; // 审核专利
+  
+
+
 
   // 审核权限
   canAccessReviewCenter: boolean;
@@ -281,3 +284,10 @@ export const PERMISSION_MESSAGES = {
   ONLY_EDIT_OWN_PASSWORD: "您只能修改自己的密码",
   ONLY_EDIT_DEPARTMENT_ROLE: "管理员只能修改用户的部门和角色",
 } as const;
+
+
+
+
+
+
+

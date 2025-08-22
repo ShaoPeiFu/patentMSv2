@@ -9,83 +9,49 @@
       </el-button>
     </div>
 
-    <!-- 搜索和筛选 -->
+    <!-- 简化的搜索区域 -->
     <div class="search-section">
       <el-card>
-        <!-- 智能搜索框 -->
-        <div class="search-bar">
-          <SearchSuggestions
-            v-model="quickSearchQuery"
-            placeholder="智能搜索专利..."
-            @search="handleQuickSearch"
-            @suggestion-select="handleSuggestionSelect"
-            @history-select="handleHistorySelect"
-          />
-          <el-button
-            type="primary"
-            @click="toggleAdvancedSearch"
-            :class="{ 'is-active': showAdvancedSearch }"
-          >
-            <el-icon><Tools /></el-icon>
-            高级搜索
-          </el-button>
+        <!-- 主搜索栏 -->
+        <div class="main-search-bar">
+          <div class="search-input-wrapper">
+            <SearchSuggestions
+              v-model="quickSearchQuery"
+              placeholder="搜索专利标题、专利号、描述..."
+              @search="handleQuickSearch"
+              @suggestion-select="handleSuggestionSelect"
+              @history-select="handleHistorySelect"
+              class="main-search-input"
+            />
+          </div>
+          <div class="search-actions">
+            <el-button
+              type="primary"
+              @click="toggleAdvancedSearch"
+              :class="{ 'is-active': showAdvancedSearch }"
+            >
+              <el-icon><Tools /></el-icon>
+              高级搜索
+            </el-button>
+            <el-button @click="handleReset" v-if="hasActiveFilters">
+              <el-icon><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+          </div>
         </div>
 
-        <!-- 高级搜索 -->
-        <div class="advanced-search-wrapper" v-if="showAdvancedSearch">
+        <!-- 高级搜索（隐藏状态） -->
+        <div class="advanced-search-wrapper" v-show="showAdvancedSearch">
+          <el-divider content-position="left">
+            <span class="advanced-search-title">
+              <el-icon><Tools /></el-icon>
+              高级搜索条件
+            </span>
+          </el-divider>
           <AdvancedSearch
             v-model="showAdvancedSearch"
             @search="handleAdvancedSearch"
           />
-        </div>
-
-        <!-- 传统搜索表单（保留作为备选） -->
-        <div class="traditional-search" v-show="!showAdvancedSearch">
-          <el-form :model="searchForm" inline>
-            <el-form-item label="关键词">
-              <el-input
-                v-model="searchForm.keyword"
-                placeholder="搜索专利标题、描述、专利号"
-                clearable
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-
-            <el-form-item label="状态">
-              <el-select
-                v-model="searchForm.status"
-                placeholder="选择状态"
-                clearable
-              >
-                <el-option label="待审核" value="pending" />
-                <el-option label="已批准" value="approved" />
-                <el-option label="已拒绝" value="rejected" />
-                <el-option label="已过期" value="expired" />
-                <el-option label="维护中" value="maintained" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item label="类型">
-              <el-select
-                v-model="searchForm.type"
-                placeholder="选择类型"
-                clearable
-              >
-                <el-option label="发明专利" value="invention" />
-                <el-option label="实用新型" value="utility_model" />
-                <el-option label="外观设计" value="design" />
-                <el-option label="软件专利" value="invention" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item>
-              <el-button type="primary" @click="handleSearch">
-                <el-icon><Search /></el-icon>
-                搜索
-              </el-button>
-              <el-button @click="handleReset">重置</el-button>
-            </el-form-item>
-          </el-form>
         </div>
 
         <!-- 搜索结果信息 -->
@@ -242,7 +208,7 @@ import { useRouter } from "vue-router";
 import { usePatentStore } from "@/stores/patent";
 import { useSearchStore } from "@/stores/search";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Search, Tools } from "@element-plus/icons-vue";
+import { Plus, Search, Tools, RefreshLeft } from "@element-plus/icons-vue";
 import type { PatentStatistics, PatentTableSelection } from "@/types/patent";
 import type {
   SearchCondition,
@@ -271,15 +237,13 @@ const quickSearchQuery = ref("");
 const currentSearchConditions = ref<SearchCondition[]>([]);
 const currentSearchInfo = ref("");
 
-// 搜索表单
-const searchForm = ref<{
-  keyword: string;
-  status: string;
-  type: string;
-}>({
-  keyword: "",
-  status: "",
-  type: "",
+// 简化的搜索状态
+const hasActiveFilters = computed(() => {
+  return (
+    quickSearchQuery.value.trim() ||
+    currentSearchConditions.value.length > 0 ||
+    currentSearchInfo.value
+  );
 });
 
 // 本地统计信息（用于显示）
@@ -315,106 +279,66 @@ const filteredPatents = computed(() => {
   return unref(patentStore.filteredPatents) || [];
 });
 
-// 搜索处理函数
-const handleSearch = () => {
-  debouncedSearch();
-};
-
-// 防抖搜索函数
-const debouncedSearch = debounce(() => {
-  performSearch();
+// 简化的搜索处理函数
+const debouncedQuickSearch = debounce((query: string) => {
+  if (query.trim()) {
+    performQuickSearch(query.trim());
+  } else {
+    clearAllFilters();
+  }
 }, 300);
 
-// 实际搜索执行
-const performSearch = () => {
+// 快速搜索执行
+const performQuickSearch = (query: string) => {
   currentPage.value = 1;
-
-  // 清除之前的筛选
   patentStore.clearFilters();
-
-  // 应用关键词搜索
-  if (searchForm.value.keyword && searchForm.value.keyword.trim()) {
-    patentStore.searchPatents(searchForm.value.keyword.trim());
-    console.log("搜索关键词:", searchForm.value.keyword.trim());
-  }
-
-  // 应用状态筛选
-  if (searchForm.value.status) {
-    patentStore.filterByStatus(searchForm.value.status as any);
-    console.log("筛选状态:", searchForm.value.status);
-  }
-
-  // 应用类型筛选
-  if (searchForm.value.type) {
-    patentStore.filterByType(searchForm.value.type as any);
-    console.log("筛选类型:", searchForm.value.type);
-  }
-
-  // 更新本地统计信息
+  patentStore.searchPatents(query);
+  currentSearchInfo.value = `搜索: "${query}"`;
   updateLocalStatistics();
 
-  console.log("筛选后的专利数量:", filteredPatents.value.length);
+  // 记录搜索历史
+  searchStore.addSearchHistory(query, filteredPatents.value.length);
 
-  // 显示搜索结果提示
-  const hasFilters =
-    searchForm.value.keyword ||
-    searchForm.value.status ||
-    searchForm.value.type;
-  if (hasFilters) {
-    ElMessage.success(`搜索完成，找到 ${filteredPatents.value.length} 条记录`);
-  }
+  console.log(`快速搜索完成，找到 ${filteredPatents.value.length} 条记录`);
+};
+
+// 清除所有筛选
+const clearAllFilters = () => {
+  patentStore.clearFilters();
+  currentSearchConditions.value = [];
+  currentSearchInfo.value = "";
+  updateLocalStatistics();
 };
 
 const handleReset = () => {
-  // 重置表单
-  Object.assign(searchForm.value, {
-    keyword: "",
-    status: "",
-    type: "",
-    categoryId: "",
-  });
-
-  // 清除所有过滤器
-  patentStore.clearFilters();
-
-  // 清除高级搜索条件
-  currentSearchConditions.value = [];
-  currentSearchInfo.value = "";
+  // 重置所有搜索状态
   quickSearchQuery.value = "";
-
-  // 更新统计信息
-  updateLocalStatistics();
+  showAdvancedSearch.value = false;
+  clearAllFilters();
 
   console.log("已重置所有筛选条件");
   ElMessage.success("已重置所有筛选条件");
 };
 
-// 新增搜索方法
+// 切换高级搜索显示状态
 const toggleAdvancedSearch = () => {
   showAdvancedSearch.value = !showAdvancedSearch.value;
+  if (showAdvancedSearch.value) {
+    // 打开高级搜索时清除快速搜索
+    quickSearchQuery.value = "";
+    clearAllFilters();
+  }
 };
 
 const handleQuickSearch = (query: string) => {
+  console.log("快速搜索:", query);
+  // 关闭高级搜索
+  showAdvancedSearch.value = false;
   // 清除高级搜索条件
   currentSearchConditions.value = [];
-  showAdvancedSearch.value = false;
 
-  // 使用传统搜索
-  searchForm.value.keyword = query;
-  patentStore.clearFilters();
-
-  if (query.trim()) {
-    patentStore.searchPatents(query.trim());
-    currentSearchInfo.value = `搜索关键词: "${query}"`;
-
-    // 记录搜索历史
-    searchStore.addSearchHistory(query, filteredPatents.value.length);
-  } else {
-    currentSearchInfo.value = "";
-  }
-
-  updateLocalStatistics();
-  ElMessage.success(`搜索完成，找到 ${filteredPatents.value.length} 条记录`);
+  // 执行防抖搜索
+  debouncedQuickSearch(query);
 };
 
 const handleAdvancedSearch = (conditions: SearchCondition[]) => {
@@ -690,17 +614,39 @@ onMounted(() => {
 }
 
 /* 新增样式 */
-.search-bar {
+.main-search-bar {
   display: flex;
   gap: 12px;
   align-items: center;
   margin-bottom: 16px;
 }
 
-.search-bar .el-button.is-active {
+.search-input-wrapper {
+  flex: 1;
+}
+
+.main-search-input {
+  width: 100%;
+}
+
+.search-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.search-actions .el-button.is-active {
   background-color: #409eff;
   border-color: #409eff;
   color: white;
+}
+
+.advanced-search-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #409eff;
+  font-weight: 500;
 }
 
 .advanced-search-wrapper {
@@ -726,9 +672,13 @@ onMounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .search-bar {
+  .main-search-bar {
     flex-direction: column;
-    align-items: stretch;
+    gap: 8px;
+  }
+
+  .search-actions {
+    justify-content: center;
   }
 }
 

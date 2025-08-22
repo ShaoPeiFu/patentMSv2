@@ -94,7 +94,13 @@ export interface ServiceEvaluation {
 }
 
 // 合同类型
-export type ContractStatus = "draft" | "active" | "completed" | "terminated";
+export type ContractStatus =
+  | "draft"
+  | "pending"
+  | "signed"
+  | "active"
+  | "completed"
+  | "terminated";
 export type ContractPriority = "high" | "medium" | "low";
 
 export interface Contract {
@@ -102,19 +108,15 @@ export interface Contract {
   title: string;
   contractNumber: string;
   type: ContractType;
-  lawFirmId: number;
-  clientId: number;
-  templateId?: number;
   status: ContractStatus;
-  priority: ContractPriority;
-  startDate: string;
-  endDate: string;
-  value: number;
+  startDate?: string;
+  endDate?: string;
+  amount?: number;
   currency: string;
-  description: string;
-  terms: string;
-  attachments: string[];
-  createdBy: number;
+  description?: string;
+  terms?: string;
+  parties?: string;
+  documents?: string;
   createdAt: string;
   updatedAt: string;
 }
