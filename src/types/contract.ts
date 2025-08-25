@@ -112,11 +112,13 @@ export interface Contract {
   startDate?: string;
   endDate?: string;
   amount?: number;
+  value?: number; // 保留value字段以兼容现有代码
   currency: string;
   description?: string;
   terms?: string;
   parties?: string;
   documents?: string;
+  lawFirmId?: number; // 添加lawFirmId字段
   createdAt: string;
   updatedAt: string;
 }

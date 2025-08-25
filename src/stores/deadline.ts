@@ -276,8 +276,8 @@ export const useDeadlineStore = defineStore("deadline", () => {
             ...assessment,
             // 为可能缺失的字段提供默认值
             riskLevel: assessment.riskLevel || "medium",
-            description: assessment.description || "风险评估",
-            recommendations: assessment.recommendations || [],
+            description: (assessment as any).description || "风险评估",
+            recommendations: (assessment as any).recommendations || [],
           }));
 
         console.log("成功加载风险评估:", riskAssessments.value.length, "条");
@@ -824,15 +824,15 @@ export const useDeadlineStore = defineStore("deadline", () => {
     return actions;
   };
 
-  const getRiskColor = (riskLevel: RiskLevel): string => {
-    const colors = {
-      low: "#67c23a",
-      medium: "#e6a23c",
-      high: "#f56c6c",
-      critical: "#ff0000",
-    };
-    return colors[riskLevel];
-  };
+  // const getRiskColor = (riskLevel: RiskLevel): string => {
+  //   const colors = {
+  //     low: "#67c23a",
+  //     medium: "#e6a23c",
+  //     high: "#f56c6c",
+  //     critical: "#ff0000",
+  //   };
+  //   return colors[riskLevel];
+  // };
 
   const getDeadlineTypeText = (type: DeadlineType): string => {
     const texts: Record<DeadlineType, string> = {

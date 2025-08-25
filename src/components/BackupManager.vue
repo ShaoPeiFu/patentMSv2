@@ -351,9 +351,12 @@ const filteredBackups = computed(() => {
 
   if (filterStatus.value) {
     backups = backups.filter((backup) => {
-      if (filterStatus.value === "success") return backup.status === "成功";
-      if (filterStatus.value === "failed") return backup.status === "失败";
-      if (filterStatus.value === "running") return backup.status === "进行中";
+      if (filterStatus.value === "success")
+        return (backup as any).status === "成功";
+      if (filterStatus.value === "failed")
+        return (backup as any).status === "失败";
+      if (filterStatus.value === "running")
+        return (backup as any).status === "进行中";
       return true;
     });
   }
@@ -361,7 +364,7 @@ const filteredBackups = computed(() => {
   if (filterDate.value) {
     const filterDateObj = new Date(filterDate.value);
     backups = backups.filter((backup) => {
-      const backupDate = new Date(backup.timestamp);
+      const backupDate = new Date((backup as any).timestamp);
       return (
         backupDate.getFullYear() === filterDateObj.getFullYear() &&
         backupDate.getMonth() === filterDateObj.getMonth() &&
@@ -536,20 +539,25 @@ const deleteBackup = async (backup: any) => {
 
     if (result.success) {
       // 从本地列表中移除
-      const index = backupHistory.value.findIndex((b) => b.id === backup.id);
+      const index = backupHistory.value.findIndex(
+        (b) => (b as any).id === (backup as any).id
+      );
       if (index > -1) {
         backupHistory.value.splice(index, 1);
         // 重新计算统计数据
         backupStats.total = backupHistory.value.length;
         backupStats.successful = backupHistory.value.filter(
-          (b) => b.status === "成功"
+          (b) => (b as any).status === "成功"
         ).length;
         backupStats.failed = backupHistory.value.filter(
-          (b) => b.status === "失败"
+          (b) => (b as any).status === "失败"
         ).length;
         backupStats.totalSize = parseFloat(
           (
-            backupHistory.value.reduce((sum, b) => sum + b.size, 0) /
+            backupHistory.value.reduce(
+              (sum, b) => sum + ((b as any).size || 0),
+              0
+            ) /
             (1024 * 1024 * 1024)
           ).toFixed(1)
         );
@@ -587,7 +595,7 @@ const loadBackups = async () => {
     });
 
     if (response.backups) {
-      backupHistory.value = response.backups.map((backup) => ({
+      backupHistory.value = response.backups.map((backup: any) => ({
         id: backup.id,
         timestamp: new Date(backup.startedAt),
         type: backup.backupType === "full" ? "完整备份" : "增量备份",
@@ -602,7 +610,8 @@ const loadBackups = async () => {
         duration:
           backup.completedAt && backup.startedAt
             ? Math.round(
-                (new Date(backup.completedAt) - new Date(backup.startedAt)) /
+                (new Date(backup.completedAt).getTime() -
+                  new Date(backup.startedAt).getTime()) /
                   60000
               )
             : 0,
@@ -633,14 +642,17 @@ const loadBackups = async () => {
       // 计算统计数据
       backupStats.total = backupHistory.value.length;
       backupStats.successful = backupHistory.value.filter(
-        (b) => b.status === "成功"
+        (b) => (b as any).status === "成功"
       ).length;
       backupStats.failed = backupHistory.value.filter(
-        (b) => b.status === "失败"
+        (b) => (b as any).status === "失败"
       ).length;
       backupStats.totalSize = parseFloat(
         (
-          backupHistory.value.reduce((sum, b) => sum + b.size, 0) /
+          backupHistory.value.reduce(
+            (sum, b) => sum + ((b as any).size || 0),
+            0
+          ) /
           (1024 * 1024 * 1024)
         ).toFixed(1)
       );

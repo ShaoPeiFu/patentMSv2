@@ -17,7 +17,7 @@ import { ElMessage } from "element-plus";
 import { useUserStore } from "@/stores/user";
 import { authAPI } from "@/utils/api";
 import UserForm from "./UserForm.vue";
-import type { User } from "@/types/user";
+// import type { User } from "@/types/user";
 
 const router = useRouter();
 const userStore = useUserStore();

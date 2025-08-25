@@ -709,7 +709,7 @@ const calculateTotalValue = () => {
     return 0;
   }
   return contractStore.contracts.reduce(
-    (total, contract) => total + (contract.value || 0),
+    (total, contract) => total + (contract.amount || contract.value || 0),
     0
   );
 };

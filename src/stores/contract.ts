@@ -78,6 +78,8 @@ export const useContractStore = defineStore("contract", () => {
         },
         contractsByStatus: {
           draft: 0,
+          pending: 0,
+          signed: 0,
           active: 0,
           completed: 0,
           terminated: 0,
@@ -93,7 +95,7 @@ export const useContractStore = defineStore("contract", () => {
       (c) => c.status === "completed"
     ).length;
     const totalValue = contracts.value.reduce(
-      (sum, c) => sum + (c.value || 0),
+      (sum, c) => sum + (c.amount || c.value || 0),
       0
     );
 
@@ -500,7 +502,13 @@ export const useContractStore = defineStore("contract", () => {
     contract: Omit<Contract, "id" | "createdAt" | "updatedAt">
   ): Promise<Contract> => {
     try {
-      const response = await contractAPI.createContract(contract);
+      // 转换数据类型以匹配API期望
+      const contractData = {
+        ...contract,
+        parties: contract.parties ? JSON.parse(contract.parties) : [],
+        documents: contract.documents ? JSON.parse(contract.documents) : [],
+      };
+      const response = await contractAPI.createContract(contractData);
       if (response && response.data) {
         const newContract = response.data;
 
@@ -761,17 +769,29 @@ export const useContractStore = defineStore("contract", () => {
         return false;
       if (
         condition.startDate &&
+        contract.startDate &&
+        condition.startDate &&
         new Date(contract.startDate) < new Date(condition.startDate)
       )
         return false;
       if (
         condition.endDate &&
+        contract.endDate &&
+        condition.endDate &&
         new Date(contract.endDate) > new Date(condition.endDate)
       )
         return false;
-      if (condition.minValue && contract.value < condition.minValue)
+      if (
+        condition.minValue &&
+        (contract.amount || contract.value) &&
+        (contract.amount || contract.value)! < condition.minValue
+      )
         return false;
-      if (condition.maxValue && contract.value > condition.maxValue)
+      if (
+        condition.maxValue &&
+        (contract.amount || contract.value) &&
+        (contract.amount || contract.value)! > condition.maxValue
+      )
         return false;
       return true;
     });

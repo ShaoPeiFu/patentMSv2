@@ -149,7 +149,7 @@ import {
 } from "element-plus";
 import { UploadFilled } from "@element-plus/icons-vue";
 import { useDisclosureStore } from "../../stores/disclosure";
-import { useUserStore } from "../../stores/user";
+// import { useUserStore } from "../../stores/user";
 import type {
   DisclosureFormData,
   DisclosureDocument,
@@ -167,7 +167,7 @@ const emit = defineEmits<{
 }>();
 
 const disclosureStore = useDisclosureStore();
-const userStore = useUserStore();
+// const userStore = useUserStore();
 
 const formRef = ref<FormInstance>();
 const uploadRef = ref();
@@ -307,9 +307,11 @@ const handleFileChange = (file: UploadFile, uploadFiles: UploadFiles) => {
   form.attachments = uploadFiles.map((f) => f.raw).filter((f) => f) as File[];
 };
 
-const handleFileRemove = (file: UploadFile, uploadFiles: UploadFiles) => {
-  fileList.value = uploadFiles;
-  form.attachments = uploadFiles.map((f) => f.raw).filter((f) => f) as File[];
+const handleFileRemove = (_file: UploadFile, _uploadFiles: UploadFiles) => {
+  fileList.value = _uploadFiles;
+  form.attachments = _uploadFiles
+    .map((f: any) => f.raw)
+    .filter((f: any) => f) as File[];
 };
 
 const beforeUpload = () => {

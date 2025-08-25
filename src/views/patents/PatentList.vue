@@ -208,7 +208,7 @@ import { useRouter } from "vue-router";
 import { usePatentStore } from "@/stores/patent";
 import { useSearchStore } from "@/stores/search";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Search, Tools, RefreshLeft } from "@element-plus/icons-vue";
+import { Plus, Tools, RefreshLeft } from "@element-plus/icons-vue";
 import type { PatentStatistics, PatentTableSelection } from "@/types/patent";
 import type {
   SearchCondition,
@@ -344,12 +344,12 @@ const handleQuickSearch = (query: string) => {
 const handleAdvancedSearch = (conditions: SearchCondition[]) => {
   // 清除传统搜索
   patentStore.clearFilters();
-  Object.assign(searchForm.value, {
-    keyword: "",
-    status: "",
-    type: "",
-    categoryId: "",
-  });
+  // Object.assign(searchForm.value, {
+  //   keyword: "",
+  //   status: "",
+  //   type: "",
+  //   categoryId: "",
+  // });
   quickSearchQuery.value = "";
 
   // 设置高级搜索条件

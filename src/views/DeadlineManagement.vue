@@ -449,13 +449,13 @@ import {
 import type {
   DeadlineRecord,
   SmartReminder,
-  CalendarEvent,
+  // CalendarEvent,
   BatchOperation,
 } from "@/types/deadline";
 import DeadlineForm from "@/components/deadlines/DeadlineForm.vue";
 import BatchOperationForm from "@/components/deadlines/BatchOperationForm.vue";
 
-import deadlineAPI from "@/services/deadlineAPI";
+// import deadlineAPI from "@/services/deadlineAPI";
 
 const deadlineStore = useDeadlineStore();
 

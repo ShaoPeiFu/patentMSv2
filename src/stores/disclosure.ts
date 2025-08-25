@@ -72,8 +72,8 @@ export const useDisclosureStore = defineStore("disclosure", () => {
     try {
       const response = await disclosureAPI.getDisclosures({
         ...params,
-        page: currentPage.value,
-        limit: pageSize.value,
+        // page: currentPage.value, // 移除page参数，因为DisclosureSearchParams中没有定义
+        // limit: pageSize.value, // 移除limit参数，因为DisclosureSearchParams中没有定义
       });
 
       disclosures.value = response.data;

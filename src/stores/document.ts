@@ -1479,12 +1479,12 @@ export const useDocumentStore = defineStore("document", () => {
           ...response.template,
           // 确保默认值存在
           category: response.template.category || "文档",
-          version: response.template.version || "1.0",
-          isActive:
-            response.template.isActive !== undefined
-              ? response.template.isActive
-              : true,
-          tags: response.template.tags || [],
+          // version: response.template.version || "1.0",
+          // isActive:
+          //   response.template.isActive !== undefined
+          //     ? response.template.isActive
+          //     : true,
+          // tags: response.template.tags || [],
         };
 
         // 更新本地状态
@@ -1514,12 +1514,12 @@ export const useDocumentStore = defineStore("document", () => {
           ...response.template,
           // 确保默认值存在
           category: response.template.category || "文档",
-          version: response.template.version || "1.0",
-          isActive:
-            response.template.isActive !== undefined
-              ? response.template.isActive
-              : true,
-          tags: response.template.tags || [],
+          // version: response.template.version || "1.0",
+          // isActive:
+          //   response.template.isActive !== undefined
+          //     ? response.template.isActive
+          //     : true,
+          // tags: response.template.tags || [],
         };
 
         // 更新本地状态

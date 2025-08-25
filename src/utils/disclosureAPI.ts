@@ -49,7 +49,7 @@ export const disclosureAPI = {
 
     // 添加附件
     if (data.attachments && data.attachments.length > 0) {
-      data.attachments.forEach((file, index) => {
+      data.attachments.forEach((file, _index) => {
         formData.append(`attachments`, file);
       });
     }

@@ -268,12 +268,12 @@ const filteredLogs = computed(() => {
 
   // 按级别筛选
   if (filters.level) {
-    logs = logs.filter((log) => log.level.toLowerCase() === filters.level);
+    logs = logs.filter((log: any) => (log as any).level.toLowerCase() === filters.level);
   }
 
   // 按模块筛选
   if (filters.module) {
-    logs = logs.filter((log) => log.module.toLowerCase() === filters.module);
+    logs = logs.filter((log: any) => (log as any).module.toLowerCase() === filters.module);
   }
 
   // 按日期范围筛选
@@ -281,7 +281,7 @@ const filteredLogs = computed(() => {
     const startDate = new Date(filters.dateRange[0]);
     const endDate = new Date(filters.dateRange[1]);
     logs = logs.filter((log) => {
-      const logDate = new Date(log.timestamp);
+      const logDate = new Date((log as any).timestamp);
       return logDate >= startDate && logDate <= endDate;
     });
   }
@@ -291,9 +291,9 @@ const filteredLogs = computed(() => {
     const keyword = filters.keyword.toLowerCase();
     logs = logs.filter(
       (log) =>
-        log.message.toLowerCase().includes(keyword) ||
-        log.user.toLowerCase().includes(keyword) ||
-        log.ip.toLowerCase().includes(keyword)
+        (log as any).message.toLowerCase().includes(keyword) ||
+        (log as any).user.toLowerCase().includes(keyword) ||
+        (log as any).ip.toLowerCase().includes(keyword)
     );
   }
 
@@ -430,13 +430,13 @@ const loadLogs = async () => {
       // 计算统计数据
       logStats.total = logList.value.length;
       logStats.error = logList.value.filter(
-        (log) => log.level === "ERROR"
+        (log: any) => (log as any).level === "ERROR"
       ).length;
       logStats.warning = logList.value.filter(
-        (log) => log.level === "WARN"
+        (log: any) => (log as any).level === "WARN"
       ).length;
       logStats.info = logList.value.filter(
-        (log) => log.level === "INFO"
+        (log: any) => (log as any).level === "INFO"
       ).length;
     }
   } catch (error) {

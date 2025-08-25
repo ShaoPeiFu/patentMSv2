@@ -386,30 +386,30 @@ watch(
 );
 
 // 表单数据 - 使用计算属性绑定到store，确保响应式更新
-const encryptionForm = computed(() => ({
-  algorithm: dataSecurityStore.encryptionSettings.algorithm,
-  keyRotationDays: dataSecurityStore.encryptionSettings.keyRotationDays,
-  sensitiveDataEncryption:
-    dataSecurityStore.encryptionSettings.sensitiveDataEncryption,
-}));
+// const encryptionForm = computed(() => ({
+//   algorithm: dataSecurityStore.encryptionSettings.algorithm,
+//   keyRotationDays: dataSecurityStore.encryptionSettings.keyRotationDays,
+//   sensitiveDataEncryption:
+//     dataSecurityStore.encryptionSettings.sensitiveDataEncryption,
+// }));
 
-const loggingForm = computed(() => ({
-  level: dataSecurityStore.loggingSettings.level,
-  retentionDays: dataSecurityStore.loggingSettings.retentionDays,
-  realTimeMonitoring: dataSecurityStore.loggingSettings.realTimeMonitoring,
-}));
+// const loggingForm = computed(() => ({
+//   level: dataSecurityStore.loggingSettings.level,
+//   retentionDays: dataSecurityStore.loggingSettings.retentionDays,
+//   realTimeMonitoring: dataSecurityStore.loggingSettings.realTimeMonitoring,
+// }));
 
-const backupForm = computed(() => ({
-  frequency: dataSecurityStore.backupSettings.frequency,
-  location: dataSecurityStore.backupSettings.location,
-  incrementalBackup: dataSecurityStore.backupSettings.incrementalBackup,
-}));
+// const backupForm = computed(() => ({
+//   frequency: dataSecurityStore.backupSettings.frequency,
+//   location: dataSecurityStore.backupSettings.location,
+//   incrementalBackup: dataSecurityStore.backupSettings.incrementalBackup,
+// }));
 
-const recoveryForm = computed(() => ({
-  rtoHours: dataSecurityStore.recoverySettings.rtoHours,
-  rpoMinutes: dataSecurityStore.recoverySettings.rpoMinutes,
-  autoRecovery: dataSecurityStore.recoverySettings.autoRecovery,
-}));
+// const recoveryForm = computed(() => ({
+//   rtoHours: dataSecurityStore.recoverySettings.rtoHours,
+//   rpoMinutes: dataSecurityStore.recoverySettings.rpoMinutes,
+//   autoRecovery: dataSecurityStore.recoverySettings.autoRecovery,
+// }));
 
 // 计算属性
 const securityStatus = computed(() => dataSecurityStore.securityStatus);

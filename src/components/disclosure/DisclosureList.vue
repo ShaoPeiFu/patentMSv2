@@ -202,7 +202,7 @@
               编辑
             </el-button>
             <el-dropdown
-              @command="(command) => handleCommand(command, row)"
+              @command="(command: any) => handleCommand(command, row)"
               trigger="click"
             >
               <el-button size="small">
@@ -252,7 +252,7 @@
       :close-on-click-modal="false"
     >
       <DisclosureForm
-        :initial-data="editingDisclosure"
+        :initial-data="editingDisclosure || undefined"
         @success="handleFormSuccess"
         @cancel="showCreateDialog = false"
       />
@@ -282,7 +282,7 @@ import { ref, reactive, computed, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
-  Search,
+  // Search,
   Refresh,
   Document,
   Clock,
@@ -406,7 +406,7 @@ const formatDate = (dateString: string) => {
 
 // 事件处理
 const handleSearch = async () => {
-  await disclosureStore.search(searchForm);
+  await disclosureStore.search(searchForm as any);
 };
 
 const handleReset = async () => {
@@ -420,7 +420,7 @@ const handleReset = async () => {
 };
 
 const refreshList = async () => {
-  await disclosureStore.fetchDisclosures(searchForm);
+  await disclosureStore.fetchDisclosures(searchForm as any);
   await disclosureStore.fetchStatistics();
 };
 
@@ -432,7 +432,11 @@ const handleSizeChange = (size: number) => {
   disclosureStore.setPageSize(size);
 };
 
-const handleRowClick = (row: DisclosureDocument, column: any, event: Event) => {
+const handleRowClick = (
+  row: DisclosureDocument,
+  _column: any,
+  event: Event
+) => {
   // 检查点击的目标元素，如果是操作按钮或下拉菜单，则不触发详情页面
   const target = event.target as HTMLElement;
   if (target.closest(".el-button") || target.closest(".el-dropdown")) {
@@ -509,13 +513,13 @@ const handleEditFromDetail = (disclosure: DisclosureDocument) => {
   editDisclosure(disclosure);
 };
 
-const handleEvaluateFromDetail = (disclosure: DisclosureDocument) => {
+const handleEvaluateFromDetail = (_disclosure: DisclosureDocument) => {
   showDetailDialog.value = false;
   // TODO: 打开评估对话框
   ElMessage.info("评估功能开发中");
 };
 
-const handleAssignFromDetail = (disclosure: DisclosureDocument) => {
+const handleAssignFromDetail = (_disclosure: DisclosureDocument) => {
   showDetailDialog.value = false;
   // TODO: 打开代理分配对话框
   ElMessage.info("代理分配功能开发中");

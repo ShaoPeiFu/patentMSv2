@@ -274,12 +274,12 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const emit = defineEmits<{
-  close: [];
-  edit: [disclosure: DisclosureDocument];
-  evaluate: [disclosure: DisclosureDocument];
-  assign: [disclosure: DisclosureDocument];
-}>();
+// const emit = defineEmits<{
+//   close: [];
+//   edit: [disclosure: DisclosureDocument];
+//   evaluate: [disclosure: DisclosureDocument];
+//   assign: [disclosure: DisclosureDocument];
+// }>();
 
 const userStore = useUserStore();
 

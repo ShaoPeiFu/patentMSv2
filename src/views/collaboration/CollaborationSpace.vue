@@ -201,7 +201,7 @@ import { useCollaborationStore } from "@/stores/collaboration";
 import { useUserStore } from "@/stores/user";
 import RealtimeComments from "@/components/collab/RealtimeComments.vue";
 import { ChatDotRound, Plus, User, More, Close } from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessageBox } from "element-plus";
 import type { FormInstance } from "element-plus";
 
 const collab = useCollaborationStore();
@@ -251,7 +251,7 @@ const currentUser = computed(() => userStore.currentUser);
 const canManageMembers = computed(() => {
   if (!activeChannelId.value || !currentUser.value) return false;
   const myMembership = activeChannelMembers.value.find(
-    (m) => m.id === currentUser.value.id
+    (m) => m.id === currentUser.value?.id
   );
   return (
     (myMembership &&

@@ -366,7 +366,7 @@ const toggleWorkflowStatus = async (workflow: ApprovalWorkflow) => {
     ElMessage.success(`工作流已${action}`);
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(`${action}失败: ${(error as Error).message}`);
+      ElMessage.error(`操作失败: ${(error as Error).message}`);
     }
   }
 };
