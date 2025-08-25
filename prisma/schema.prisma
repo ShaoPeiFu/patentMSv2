@@ -51,6 +51,9 @@ model User {
   collaborationMessages         CollaborationMessage[]
   assignedTasks                 CollaborationTask[]   @relation("TaskAssignee")
   createdTasks                  CollaborationTask[]   @relation("TaskCreator")
+  submittedDisclosures          DisclosureDocument[]  @relation("DisclosureSubmitter")
+  disclosureEvaluations         DisclosureEvaluation[] @relation("DisclosureEvaluator")
+  agencyAssignments             AgencyAssignment[]    @relation("AgencyAssignmentCreator")
 
   @@map("users")
 }
@@ -764,4 +767,92 @@ model CollaborationTask {
   channel     CollaborationChannel? @relation(fields: [channelId], references: [id])
 
   @@map("collaboration_tasks")
+}
+
+// 新增：交底书模型
+model DisclosureDocument {
+  id                 Int                      @id @default(autoincrement())
+  companyFileNumber  String                   @unique // 公司案号
+  title              String
+  submitterId        Int                      // 提交人（员工）
+  department         String
+  technicalField     String?
+  description        String
+  keywords           String?
+  inventors          String
+  applicants         String?
+  attachments        String?                  // JSON存储附件信息
+  status             String                   @default("submitted") // submitted, under_evaluation, approved, rejected, archived
+  submissionDate     DateTime                 @default(now())
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  submitter          User                     @relation("DisclosureSubmitter", fields: [submitterId], references: [id])
+  evaluations        DisclosureEvaluation[]
+  agencies           AgencyAssignment[]
+  
+  @@map("disclosure_documents")
+}
+
+// 新增：交底书评估模型
+model DisclosureEvaluation {
+  id                    Int                 @id @default(autoincrement())
+  disclosureId          Int
+  evaluatorId           Int                 // 顾问ID
+  evaluationType        String              @default("initial") // initial, detailed, final
+  evaluationResult      String              // approved, rejected, needs_modification
+  positiveOpinions      String?             // 正面意见
+  negativeOpinions      String?             // 负面意见
+  modificationSuggestions String?           // 修改建议
+  patentability         String?             // 可专利性评估
+  marketValue           String?             // 市场价值
+  technicalAdvantage    String?             // 技术优势
+  competitorAnalysis    String?             // 竞争对手分析
+  recommendedAction     String?             // 建议采取的行动
+  comments              String?
+  evaluationDate        DateTime            @default(now())
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  disclosure           DisclosureDocument   @relation(fields: [disclosureId], references: [id])
+  evaluator            User                 @relation("DisclosureEvaluator", fields: [evaluatorId], references: [id])
+  
+  @@map("disclosure_evaluations")
+}
+
+// 新增：代理机构模型
+model PatentAgency {
+  id                 Int               @id @default(autoincrement())
+  name               String
+  contactPerson      String
+  phone              String?
+  email              String?
+  address            String?
+  specialties        String?           // JSON存储专业领域
+  serviceLevel       String            @default("standard") // standard, premium, vip
+  rating             Float             @default(0)
+  collaborationCount Int               @default(0)
+  status             String            @default("active") // active, inactive, suspended
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  assignments        AgencyAssignment[]
+  
+  @@map("patent_agencies")
+}
+
+// 新增：代理分配模型
+model AgencyAssignment {
+  id           Int           @id @default(autoincrement())
+  disclosureId Int
+  agencyId     Int
+  assignedBy   Int           // 法务人员ID
+  assignmentDate DateTime    @default(now())
+  expectedCompletion DateTime?
+  status       String        @default("assigned") // assigned, in_progress, completed, cancelled
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  disclosure   DisclosureDocument @relation(fields: [disclosureId], references: [id])
+  agency       PatentAgency  @relation(fields: [agencyId], references: [id])
+  assignedByUser User        @relation("AgencyAssignmentCreator", fields: [assignedBy], references: [id])
+  
+  @@map("agency_assignments")
 }

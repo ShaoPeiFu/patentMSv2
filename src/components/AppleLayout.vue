@@ -252,6 +252,14 @@ const menuItems = computed(() => {
       show: true, // 所有用户都可见
     },
     {
+      path: "/dashboard/disclosures",
+      title: "交底书管理",
+      icon: "Document",
+      exact: true,
+      permission: "canViewDisclosures",
+      show: true, // 所有用户都可见
+    },
+    {
       path: "/dashboard/review",
       title: "审核专利",
       icon: "Check",

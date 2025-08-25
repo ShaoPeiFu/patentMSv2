@@ -309,7 +309,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Upload, Refresh, Clock, Tools } from "@element-plus/icons-vue";
+import { Upload, Refresh, Clock } from "@element-plus/icons-vue";
 import { dataSecurityAPI } from "@/utils/api";
 
 // 备份统计数据 - 从API获取真实数据

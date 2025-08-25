@@ -14,6 +14,9 @@ import deadlinesRouter from "./routes/deadlines";
 import usersRouter from "./routes/users";
 import collaborationRouter from "./routes/collaboration";
 import createTasksRouter from "./routes/tasks";
+import disclosureRouter from "./routes/disclosure";
+import evaluationRouter from "./routes/evaluation";
+import agencyRouter from "./routes/agency";
 import { encryptionService } from "./services/encryption";
 import { BackupService } from "./services/backup";
 import { LoggingService, LogLevel } from "./services/logging";
@@ -796,6 +799,7 @@ app.put(
         "title",
         "description",
         "patentNumber",
+        "applicationNumber",
         "status",
         "type",
         "categoryId",
@@ -2163,7 +2167,7 @@ app.post(
           : null,
         documents: req.body.documents
           ? Array.isArray(req.body.documents)
-            ? JSON.stringify(req.body.documents)
+          ? JSON.stringify(req.body.documents)
             : req.body.documents
           : null,
       };
@@ -2612,10 +2616,10 @@ app.put(
           details: error.message,
         });
       } else {
-        res.status(500).json({
-          error: "更新合同模板失败",
-          details: error.message,
-        });
+      res.status(500).json({
+        error: "更新合同模板失败",
+        details: error.message,
+      });
       }
     }
   }
@@ -7032,6 +7036,11 @@ app.get(
     }
   }
 );
+
+// 使用模块化路由
+app.use("/api/disclosures", disclosureRouter);
+app.use("/api/evaluations", evaluationRouter);
+app.use("/api/agencies", agencyRouter);
 
 // 404处理 - 必须在所有路由之后，错误处理中间件之前
 app.use("*", (req, res) => {

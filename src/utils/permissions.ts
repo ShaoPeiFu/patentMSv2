@@ -17,9 +17,14 @@ export interface Permission {
   canDeletePatents: boolean;
   canAddPatents: boolean;
   canReviewPatents: boolean; // 审核专利
-  
 
-
+  // 交底书管理权限
+  canViewDisclosures: boolean;
+  canCreateDisclosures: boolean;
+  canEditDisclosures: boolean;
+  canDeleteDisclosures: boolean;
+  canEvaluateDisclosures: boolean;
+  canAssignAgencies: boolean;
 
   // 审核权限
   canAccessReviewCenter: boolean;
@@ -65,6 +70,14 @@ export function getPermissionsByRole(role: UserRole): Permission {
       canAddPatents: true, // 可以添加专利给别人审核
       canReviewPatents: false,
 
+      // 交底书管理 - 可以查看、创建、编辑自己的
+      canViewDisclosures: true,
+      canCreateDisclosures: true,
+      canEditDisclosures: true, // 只能编辑自己的
+      canDeleteDisclosures: false, // 只能删除自己未提交的
+      canEvaluateDisclosures: false,
+      canAssignAgencies: false,
+
       // 审核权限 - 无
       canAccessReviewCenter: false,
       canApprovePatents: false,
@@ -106,6 +119,14 @@ export function getPermissionsByRole(role: UserRole): Permission {
       canAddPatents: true,
       canReviewPatents: false, // 管理员不参与审核流程
 
+      // 交底书管理 - 全权限
+      canViewDisclosures: true,
+      canCreateDisclosures: true,
+      canEditDisclosures: true,
+      canDeleteDisclosures: true,
+      canEvaluateDisclosures: true, // 管理员也可以评估
+      canAssignAgencies: true, // 可以分配代理机构
+
       // 审核权限 - 无（管理员不是审核员）
       canAccessReviewCenter: false,
       canApprovePatents: false,
@@ -146,6 +167,14 @@ export function getPermissionsByRole(role: UserRole): Permission {
       canDeletePatents: false,
       canAddPatents: true,
       canReviewPatents: true, // 审核专利
+
+      // 交底书管理 - 可以查看、创建、评估
+      canViewDisclosures: true,
+      canCreateDisclosures: true,
+      canEditDisclosures: false, // 不能编辑
+      canDeleteDisclosures: false,
+      canEvaluateDisclosures: true, // 可以评估
+      canAssignAgencies: false,
 
       // 审核权限 - 全权限
       canAccessReviewCenter: true,
@@ -284,10 +313,3 @@ export const PERMISSION_MESSAGES = {
   ONLY_EDIT_OWN_PASSWORD: "您只能修改自己的密码",
   ONLY_EDIT_DEPARTMENT_ROLE: "管理员只能修改用户的部门和角色",
 } as const;
-
-
-
-
-
-
-

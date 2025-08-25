@@ -60,6 +60,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/patents/PatentEdit.vue"),
         meta: { title: "编辑专利" },
       },
+      {
+        path: "disclosures",
+        name: "DisclosureManagement",
+        component: () => import("@/views/DisclosureManagement.vue"),
+        meta: { title: "交底书管理" },
+      },
 
       {
         path: "users",

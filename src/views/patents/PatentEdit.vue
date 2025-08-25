@@ -469,6 +469,42 @@ const rules: FormRules = {
   inventors: [{ required: true, message: "请输入发明人", trigger: "change" }],
 };
 
+// 辅助函数：获取人员数组（处理JSON字符串或数组）
+const getPersonArray = (field: any): string[] => {
+  if (!field) return [];
+
+  try {
+    if (typeof field === "string") {
+      const parsed = JSON.parse(field);
+      return Array.isArray(parsed) ? parsed : [];
+    } else if (Array.isArray(field)) {
+      return field;
+    } else {
+      return [];
+    }
+  } catch (error) {
+    return [];
+  }
+};
+
+// 辅助函数：获取关键词数组（处理JSON字符串或数组）
+const getKeywordsArray = (field: any): string[] => {
+  if (!field) return [];
+
+  try {
+    if (typeof field === "string") {
+      const parsed = JSON.parse(field);
+      return Array.isArray(parsed) ? parsed : [];
+    } else if (Array.isArray(field)) {
+      return field;
+    } else {
+      return [];
+    }
+  } catch (error) {
+    return [];
+  }
+};
+
 // 获取专利详情
 const fetchPatentDetail = async () => {
   if (!isEdit.value) return;
@@ -502,9 +538,9 @@ const fetchPatentDetail = async () => {
         status: foundPatent.status,
         description: foundPatent.description,
         technicalField: foundPatent.technicalField,
-        applicants: foundPatent.applicants,
-        inventors: foundPatent.inventors,
-        keywords: foundPatent.keywords,
+        applicants: getPersonArray(foundPatent.applicants),
+        inventors: getPersonArray(foundPatent.inventors),
+        keywords: getKeywordsArray(foundPatent.keywords),
       });
 
       // 加载文档和费用
